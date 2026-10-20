@@ -7,6 +7,7 @@ import { NAV_ITEMS } from "@/data/nav";
 import { getDisplayAvatar } from "@/lib/avatar";
 import { rememberProfile } from "@/lib/profiles";
 import WatermarkOverlay from "@/components/WatermarkOverlay";
+import ActiveAssessmentBar from "@/components/ActiveAssessmentBar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -143,6 +144,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-slate-950">
         {/* Top bar */}
         <div className="sticky top-0 z-10 bg-gray-50/80 dark:bg-slate-950/80 backdrop-blur border-b border-gray-200 dark:border-slate-800 px-6 py-3 flex items-center justify-end gap-2">
+          {/* Active assessment progress indicator */}
+          <ActiveAssessmentBar />
+
           {/* Theme toggle */}
           <button onClick={toggleTheme} title={isDark ? "Switch to light mode" : "Switch to dark mode"}
             className="p-2 rounded-lg text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition">

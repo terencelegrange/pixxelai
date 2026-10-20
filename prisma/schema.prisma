@@ -211,6 +211,7 @@ model Application {
   raw_sync_data      String?  @db.LongText
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
+  assessments        Assessment[]
 
   @@index([category])
   @@index([lifecycle_status])
@@ -252,4 +253,50 @@ model LlmProviderConfig {
   updated_at       DateTime  @updatedAt
 
   @@map("llm_provider_configs")
+}
+
+model Assessment {
+  id               String           @id @default(cuid()) @db.VarChar(36)
+  application_id   String           @db.VarChar(36)
+  application      Application      @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  category         String           @default("Security") @db.VarChar(50)
+  status           String           @default("queued") @db.VarChar(50) // queued, cloning, analyzing, completed, failed
+  compliance_score Float?
+  summary          String?          @db.Text
+  items_count      Int              @default(0)
+  meets_count      Int              @default(0)
+  partial_count    Int              @default(0)
+  fails_count      Int              @default(0)
+  na_count         Int              @default(0)
+  llm_provider     String?          @db.VarChar(50)
+  llm_model        String?          @db.VarChar(100)
+  error_message    String?          @db.Text
+  started_at       DateTime?
+  completed_at     DateTime?
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+  items            AssessmentItem[]
+
+  @@index([application_id])
+  @@index([status])
+  @@index([category])
+  @@map("assessments")
+}
+
+model AssessmentItem {
+  id             String     @id @default(cuid()) @db.VarChar(36)
+  assessment_id  String     @db.VarChar(36)
+  assessment     Assessment @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  standard_id    String     @db.VarChar(100) // e.g. SEC-01
+  title          String     @db.VarChar(255)
+  category       String     @default("Security") @db.VarChar(50)
+  result         String     @db.VarChar(50) // Meets, Partially Meets, Does Not Meet, Not Applicable
+  severity       String     @default("Medium") @db.VarChar(50) // Critical, High, Medium, Low, Info
+  evidence       String?    @db.Text
+  recommendation String?    @db.Text
+  created_at     DateTime   @default(now())
+
+  @@index([assessment_id])
+  @@index([result])
+  @@map("assessment_items")
 }

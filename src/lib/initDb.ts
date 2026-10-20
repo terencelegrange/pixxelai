@@ -340,6 +340,51 @@ export async function initDb() {
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `;
 
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`assessments\` (
+        \`id\`               VARCHAR(36) NOT NULL,
+        \`application_id\`   VARCHAR(36) NOT NULL,
+        \`category\`         VARCHAR(50) NOT NULL DEFAULT 'Security',
+        \`status\`           VARCHAR(50) NOT NULL DEFAULT 'queued',
+        \`compliance_score\` DOUBLE NULL,
+        \`summary\`          TEXT NULL,
+        \`items_count\`      INT NOT NULL DEFAULT 0,
+        \`meets_count\`      INT NOT NULL DEFAULT 0,
+        \`partial_count\`    INT NOT NULL DEFAULT 0,
+        \`fails_count\`      INT NOT NULL DEFAULT 0,
+        \`na_count\`         INT NOT NULL DEFAULT 0,
+        \`llm_provider\`     VARCHAR(50) NULL,
+        \`llm_model\`        VARCHAR(100) NULL,
+        \`error_message\`    TEXT NULL,
+        \`started_at\`       DATETIME(3) NULL,
+        \`completed_at\`     DATETIME(3) NULL,
+        \`created_at\`       DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\`       DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        KEY \`assessments_app_fk\` (\`application_id\`),
+        KEY \`assessments_status_idx\` (\`status\`),
+        CONSTRAINT \`assessments_app_fk\` FOREIGN KEY (\`application_id\`) REFERENCES \`applications\` (\`id\`) ON DELETE CASCADE
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`assessment_items\` (
+        \`id\`             VARCHAR(36) NOT NULL,
+        \`assessment_id\`  VARCHAR(36) NOT NULL,
+        \`standard_id\`    VARCHAR(100) NOT NULL,
+        \`title\`          VARCHAR(255) NOT NULL,
+        \`category\`       VARCHAR(50) NOT NULL DEFAULT 'Security',
+        \`result\`         VARCHAR(50) NOT NULL,
+        \`severity\`       VARCHAR(50) NOT NULL DEFAULT 'Medium',
+        \`evidence\`       TEXT NULL,
+        \`recommendation\` TEXT NULL,
+        \`created_at\`     DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        KEY \`assessment_items_ass_fk\` (\`assessment_id\`),
+        CONSTRAINT \`assessment_items_ass_fk\` FOREIGN KEY (\`assessment_id\`) REFERENCES \`assessments\` (\`id\`) ON DELETE CASCADE
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
     // Seed default LLM providers
     const defaultProviders = [
       {

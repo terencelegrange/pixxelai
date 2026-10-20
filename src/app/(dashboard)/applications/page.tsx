@@ -45,8 +45,52 @@ export default function ApplicationsPage() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
+  // Review execution state
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [reviewToast, setReviewToast] = useState<{ text: string; assessmentId?: string } | null>(null);
+
   // Quick sync state
   const [syncing, setSyncing] = useState(false);
+
+  async function handleStartReview(app: Application) {
+    if (!app.repo_url) {
+      const confirmSetup = window.confirm(
+        `"${app.name}" does not have a git repository URL configured.\n\nWould you like to configure its repository URL first?`
+      );
+      if (confirmSetup) {
+        openEditModal(app);
+      }
+      return;
+    }
+
+    setReviewingId(app.id);
+    setReviewToast(null);
+
+    try {
+      const res = await fetch("/api/assessments/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          application_id: app.id,
+          category: "Security",
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setReviewToast({
+          text: `Security assessment started for "${app.name}". Active progress shown in the top navigation bar.`,
+          assessmentId: data.assessment_id,
+        });
+      } else {
+        alert(`Failed to start review: ${data.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      alert(`Error starting review: ${err.message}`);
+    } finally {
+      setReviewingId(null);
+    }
+  }
 
   async function loadApplications() {
     setLoading(true);
@@ -181,6 +225,43 @@ export default function ApplicationsPage() {
           </Link>
         </div>
       </div>
+
+      {/* Review Trigger Notification Banner */}
+      {reviewToast && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-500/15 via-indigo-500/15 to-emerald-500/15 border border-cyan-500/30 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                {reviewToast.text}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-slate-400">
+                You can monitor live execution at the top right, or navigate to Assessments.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {reviewToast.assessmentId && (
+              <Link
+                href={`/assessments/${reviewToast.assessmentId}`}
+                className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-semibold shadow-sm transition whitespace-nowrap"
+              >
+                View Assessment
+              </Link>
+            )}
+            <button
+              onClick={() => setReviewToast(null)}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 p-1"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stat Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -357,16 +438,39 @@ export default function ApplicationsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => openEditModal(app)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-700 hover:border-cyan-500 hover:text-cyan-600 dark:hover:text-cyan-400 text-xs font-semibold text-gray-700 dark:text-slate-300 transition"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Configure & Review
-                      </button>
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Review Button */}
+                        <button
+                          onClick={() => handleStartReview(app)}
+                          disabled={reviewingId === app.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-sm transition disabled:opacity-50"
+                          title="Run security standard assessment with LLM"
+                        >
+                          {reviewingId === app.id ? (
+                            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          ) : (
+                            <svg className="w-3.5 h-3.5 text-cyan-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                          )}
+                          Review
+                        </button>
+
+                        {/* Configure Button */}
+                        <button
+                          onClick={() => openEditModal(app)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-700 hover:border-gray-400 dark:hover:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-800 text-xs font-semibold text-gray-700 dark:text-slate-300 transition"
+                          title="Configure repository and knowledge base sources"
+                        >
+                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.526-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Configure
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -475,28 +579,6 @@ export default function ApplicationsPage() {
                   placeholder="Application purpose, high-level context, or constraints..."
                   className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
-              </div>
-
-              {/* Review workflow placeholder card */}
-              <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-cyan-500/10 to-transparent border border-indigo-500/20 dark:border-cyan-500/20">
-                <div className="flex items-center gap-2 text-xs font-bold text-indigo-700 dark:text-cyan-300 mb-1">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  Standards Assessment Workflow
-                </div>
-                <p className="text-xs text-gray-600 dark:text-slate-400 leading-relaxed">
-                  Once configured, clicking <strong>Review</strong> will trigger the assessment agent to scan the source code, knowledge base, and regulatory sources against your defined standards.
-                </p>
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-slate-800 text-gray-400 dark:text-slate-500 text-xs font-semibold cursor-not-allowed"
-                  >
-                    Assess against Standards (Coming in next step)
-                  </button>
-                </div>
               </div>
 
               {/* Modal Actions */}

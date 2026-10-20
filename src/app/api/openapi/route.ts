@@ -765,6 +765,56 @@ const spec = {
       },
     },
 
+    // ── Assessments ───────────────────────────────────────────────────────
+    "/assessments": {
+      get: {
+        tags: ["Assessments"],
+        summary: "List all assessments",
+        description: "Returns past and active standard assessments across applications.",
+        responses: {
+          200: { description: "List of assessments" },
+          401: { description: "Not authenticated" },
+        },
+      },
+    },
+    "/assessments/start": {
+      post: {
+        tags: ["Assessments"],
+        summary: "Start application standards assessment",
+        description: "Pulls the configured repository to a temp directory and kicks off async review against baseline standards via LLM.",
+        responses: {
+          200: { description: "Assessment started" },
+          400: { description: "Missing application_id" },
+          401: { description: "Not authenticated" },
+        },
+      },
+    },
+    "/assessments/active": {
+      get: {
+        tags: ["Assessments"],
+        summary: "Get active assessments",
+        description: "Returns currently queued, cloning, or analyzing assessments for the top-bar progress indicator.",
+        responses: {
+          200: { description: "List of active assessments" },
+          401: { description: "Not authenticated" },
+        },
+      },
+    },
+    "/assessments/{id}": {
+      get: {
+        tags: ["Assessments"],
+        summary: "Get assessment report details",
+        description: "Returns full compliance score, summary, and itemized controls breakdown with evidence and recommendations.",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          200: { description: "Assessment detail report" },
+          404: { description: "Not found" },
+        },
+      },
+    },
+
     // ── OpenAPI ─────────────────────────────────────────────────────────
     "/openapi": {
       get: {
