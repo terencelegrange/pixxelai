@@ -36,3 +36,75 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model PixxelSyncConfig {
+  id                  Int       @id @default(autoincrement())
+  server_url          String    @default("http://192.168.100.228:3030") @db.VarChar(255)
+  api_key             String?   @db.Text
+  sync_source         String    @default("api") @db.VarChar(20)
+  last_sync_at        DateTime?
+  last_sync_status    String?   @db.VarChar(50)
+  last_sync_message   String?   @db.Text
+  assets_synced_count Int       @default(0)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  @@map("pixxel_sync_config")
+}
+
+model Pixxel360SyncConfig {
+  id                    Int       @id @default(autoincrement())
+  server_url            String    @default("http://192.168.100.228:7002") @db.VarChar(255)
+  api_key               String?   @db.Text
+  sync_source           String    @default("database") @db.VarChar(20)
+  last_sync_at          DateTime?
+  last_sync_status      String?   @db.VarChar(50)
+  last_sync_message     String?   @db.Text
+  controls_synced_count Int       @default(0)
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  @@map("pixxel360_sync_config")
+}
+
+model Application {
+  id                 String   @id @db.VarChar(36)
+  pixxel_asset_id    String?  @unique @db.VarChar(100)
+  name               String   @db.VarChar(255)
+  short_code         String?  @db.VarChar(50)
+  category           String   @default("Application") @db.VarChar(100)
+  type               String   @default("SaaS") @db.VarChar(50)
+  lifecycle_status   String   @default("Production") @db.VarChar(50)
+  description        String?  @db.Text
+  business_owner     String?  @db.VarChar(255)
+  technical_owner    String?  @db.VarChar(255)
+  vendor             String?  @db.VarChar(255)
+  app_url            String?  @db.VarChar(500)
+  doc_url            String?  @db.VarChar(500)
+  repo_url           String?  @db.VarChar(500)
+  knowledge_base_url String?  @db.VarChar(500)
+  regulatory_sources String?  @db.Text
+  raw_sync_data      String?  @db.LongText
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  @@index([category])
+  @@index([lifecycle_status])
+  @@map("applications")
+}
+
+model Standard {
+  id          String   @id @default(cuid()) @db.VarChar(36)
+  category    String   @default("Security") @db.VarChar(50)
+  title       String   @db.VarChar(200)
+  slug        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  content     String   @db.LongText
+  source      String   @default("pixxel360") @db.VarChar(50)
+  item_count  Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([category])
+  @@map("standards")
+}
+

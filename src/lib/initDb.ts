@@ -217,6 +217,84 @@ export async function initDb() {
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `;
 
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`pixxel_sync_config\` (
+        \`id\`                  INT NOT NULL AUTO_INCREMENT,
+        \`server_url\`          VARCHAR(255) NOT NULL DEFAULT 'http://192.168.100.228:3030',
+        \`api_key\`             TEXT NULL,
+        \`sync_source\`         VARCHAR(20) NOT NULL DEFAULT 'api',
+        \`last_sync_at\`        DATETIME NULL,
+        \`last_sync_status\`    VARCHAR(50) NULL,
+        \`last_sync_message\`   TEXT NULL,
+        \`assets_synced_count\` INT NOT NULL DEFAULT 0,
+        \`created_at\`          DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\`          DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`)
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`pixxel360_sync_config\` (
+        \`id\`                    INT NOT NULL AUTO_INCREMENT,
+        \`server_url\`            VARCHAR(255) NOT NULL DEFAULT 'http://192.168.100.228:7002',
+        \`api_key\`               TEXT NULL,
+        \`sync_source\`           VARCHAR(20) NOT NULL DEFAULT 'database',
+        \`last_sync_at\`          DATETIME NULL,
+        \`last_sync_status\`      VARCHAR(50) NULL,
+        \`last_sync_message\`     TEXT NULL,
+        \`controls_synced_count\` INT NOT NULL DEFAULT 0,
+        \`created_at\`            DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\`            DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`)
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`applications\` (
+        \`id\`                 VARCHAR(36) NOT NULL,
+        \`pixxel_asset_id\`    VARCHAR(100) NULL,
+        \`name\`               VARCHAR(255) NOT NULL,
+        \`short_code\`         VARCHAR(50) NULL,
+        \`category\`           VARCHAR(100) NOT NULL DEFAULT 'Application',
+        \`type\`               VARCHAR(50) NOT NULL DEFAULT 'SaaS',
+        \`lifecycle_status\`   VARCHAR(50) NOT NULL DEFAULT 'Production',
+        \`description\`        TEXT NULL,
+        \`business_owner\`     VARCHAR(255) NULL,
+        \`technical_owner\`    VARCHAR(255) NULL,
+        \`vendor\`             VARCHAR(255) NULL,
+        \`app_url\`            VARCHAR(500) NULL,
+        \`doc_url\`            VARCHAR(500) NULL,
+        \`repo_url\`           VARCHAR(500) NULL,
+        \`knowledge_base_url\` VARCHAR(500) NULL,
+        \`regulatory_sources\` TEXT NULL,
+        \`raw_sync_data\`      LONGTEXT NULL,
+        \`created_at\`         DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\`         DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        UNIQUE KEY \`applications_pixxel_asset_id_unique\` (\`pixxel_asset_id\`),
+        KEY \`applications_category_idx\` (\`category\`),
+        KEY \`applications_lifecycle_status_idx\` (\`lifecycle_status\`)
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`standards\` (
+        \`id\`          VARCHAR(36) NOT NULL,
+        \`category\`    VARCHAR(50) NOT NULL DEFAULT 'Security',
+        \`title\`       VARCHAR(200) NOT NULL,
+        \`slug\`        VARCHAR(100) NOT NULL,
+        \`description\` VARCHAR(500) NULL,
+        \`content\`     LONGTEXT NOT NULL,
+        \`source\`      VARCHAR(50) NOT NULL DEFAULT 'pixxel360',
+        \`item_count\`  INT NOT NULL DEFAULT 0,
+        \`created_at\`  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\`  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        UNIQUE KEY \`standards_slug_unique\` (\`slug\`),
+        KEY \`standards_category_idx\` (\`category\`)
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
     // Seed default observability rows
     await prisma.$executeRaw`
       INSERT IGNORE INTO \`observability_config\` (\`type\`, \`enabled\`, \`endpoint\`, \`site_id\`, \`log_level\`)
@@ -226,6 +304,69 @@ export async function initDb() {
     await prisma.$executeRaw`
       INSERT IGNORE INTO \`observability_config\` (\`type\`, \`enabled\`, \`endpoint\`, \`api_key\`, \`site_id\`, \`log_level\`)
       VALUES ('logcollector', 0, 'http://192.168.100.228:8020/ingest', '', 'pixxelai', 'info')
+    `;
+
+    // Seed default Pixxel connection config
+    await prisma.$executeRaw`
+      INSERT IGNORE INTO \`pixxel_sync_config\` (\`id\`, \`server_url\`, \`api_key\`, \`sync_source\`)
+      VALUES (1, 'http://192.168.100.228:3030', 'pxk_MANzGm0z5ys3OcEwMXLEh8QWfXS5_vh1bqP5BRtethk', 'api')
+    `;
+
+    // Seed default Pixxel360 connection config
+    await prisma.$executeRaw`
+      INSERT IGNORE INTO \`pixxel360_sync_config\` (\`id\`, \`server_url\`, \`sync_source\`)
+      VALUES (1, 'http://192.168.100.228:7002', 'database')
+    `;
+
+    // Seed single pre-configured standard: Security
+    const initialSecurityMarkdown = `# Application Security Baseline
+
+> Source: Pixxel360 Security Controls Catalog  
+> Category: Security  
+> Standard Identifier: SEC-APP-BASELINE  
+
+---
+
+## 1. Objective
+Ensure all organizational applications and services adhere to foundational security controls to mitigate identity compromise, unauthorized data access, privilege escalation, and operational vulnerabilities.
+
+---
+
+## 2. Inherent Risk Considerations
+Applications must be evaluated based on their operational exposure and data sensitivity:
+- **Public / Internet Facing**: Requires WAF protection, rate limiting, and continuous edge monitoring.
+- **Personally Identifiable Information (PII)**: Subject to privacy compliance, strict access auditing, and encrypted storage.
+- **Financial & Payment Data (PCI)**: Requires segregated processing environments and annual compliance audits.
+- **Third-Party / SaaS Hosting**: Requires vendor risk assessment and automated deprovisioning.
+
+---
+
+## 3. Mandatory Security Controls
+
+| Control Identifier | Control Name | Severity | Default Weight | Description |
+|---|---|---|---|---|
+| **SEC-01** | SSO (Single Sign-On) | Critical | 10 | Integration with corporate identity provider (SAML / OIDC / Azure AD / Okta). |
+| **SEC-02** | MFA (Multi-Factor Authentication) | Critical | 10 | Enforced multi-factor authentication for all logins and administrator access. |
+| **SEC-03** | Centralized Audit Logging | High | 6 | Security events, logins, and administrative changes forwarded to central SIEM. |
+| **SEC-04** | SCIM Automated Deprovisioning | Medium | 3 | Automated account deactivation when employees leave the organisation. |
+| **SEC-05** | Role-Based Access Control (RBAC) | High | 6 | Granular permissions enforcing least-privilege principles. |
+| **SEC-06** | Secrets & Vault Management | Critical | 10 | No hardcoded credentials, API keys stored in centralized secrets manager. |
+| **SEC-07** | Vulnerability Scanning & Patching | High | 6 | Regular scanning of dependencies and infrastructure vulnerabilities. |
+| **SEC-08** | Data Encryption in Transit & at Rest | Critical | 10 | Enforced TLS 1.2+ for network transit and AES-256 for persistent data. |
+
+---
+
+## 4. Verification & Review Checklist
+- [ ] Central identity provider SSO configured
+- [ ] MFA enforced for all user roles, including emergency break-glass
+- [ ] Audit logs actively shipped to SIEM / log aggregator
+- [ ] Zero plain-text credentials in repository source code or environment files
+- [ ] All network endpoints enforce TLS 1.3/1.2 with HSTS
+`;
+
+    await prisma.$executeRaw`
+      INSERT IGNORE INTO \`standards\` (\`id\`, \`category\`, \`title\`, \`slug\`, \`description\`, \`content\`, \`source\`, \`item_count\`)
+      VALUES ('std-security-core', 'Security', 'Application Security Baseline', 'security', 'Core baseline security controls and requirements for organizational applications', ${initialSecurityMarkdown}, 'pixxel360', 8)
     `;
 
     // Seed default role permissions

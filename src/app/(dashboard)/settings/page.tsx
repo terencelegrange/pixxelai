@@ -4,6 +4,20 @@ import Link from "next/link";
 
 const TILES: { key: string; label: string; description: string; icon: string; href?: string }[] = [
   {
+    key: "pixxel-sync",
+    label: "Sync to Pixxel",
+    description: "Configure Pixxel connection and synchronize application inventory",
+    icon: "M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99",
+    href: "/settings/sync-to-pixxel",
+  },
+  {
+    key: "pixxel360",
+    label: "Pixxel360 Integration",
+    description: "Connect to Pixxel360 and sync security controls into standards",
+    icon: "M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z",
+    href: "/settings/pixxel360",
+  },
+  {
     key: "users",
     label: "Users",
     description: "Manage user accounts, roles, and approval status",
