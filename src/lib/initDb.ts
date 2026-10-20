@@ -318,6 +318,75 @@ export async function initDb() {
       VALUES (1, 'http://192.168.100.228:7002', 'database')
     `;
 
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`llm_provider_configs\` (
+        \`id\`               VARCHAR(50) NOT NULL,
+        \`name\`             VARCHAR(100) NOT NULL,
+        \`enabled\`          TINYINT(1) NOT NULL DEFAULT 0,
+        \`is_active\`        TINYINT(1) NOT NULL DEFAULT 0,
+        \`base_url\`         VARCHAR(500) NULL,
+        \`api_key\`          TEXT NULL,
+        \`default_model\`    VARCHAR(100) NOT NULL,
+        \`available_models\` TEXT NULL,
+        \`temperature\`      DOUBLE NOT NULL DEFAULT 0.2,
+        \`max_tokens\`       INT NOT NULL DEFAULT 4096,
+        \`timeout_seconds\`  INT NOT NULL DEFAULT 60,
+        \`last_test_at\`     DATETIME(3) NULL,
+        \`last_test_status\` VARCHAR(50) NULL,
+        \`last_test_msg\`    TEXT NULL,
+        \`created_at\`       DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\`       DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`)
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    // Seed default LLM providers
+    const defaultProviders = [
+      {
+        id: "ollama",
+        name: "Ollama (Local LLM)",
+        enabled: 1,
+        is_active: 1,
+        base_url: "http://localhost:11434",
+        default_model: "llama3",
+        available_models: "llama3, llama3.1, mistral, deepseek-r1, qwen2.5, codellama, phi3",
+      },
+      {
+        id: "antigravity",
+        name: "Antigravity (Gemini)",
+        enabled: 0,
+        is_active: 0,
+        base_url: "https://generativelanguage.googleapis.com",
+        default_model: "gemini-2.5-pro",
+        available_models: "gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro",
+      },
+      {
+        id: "codex",
+        name: "Codex (OpenAI)",
+        enabled: 0,
+        is_active: 0,
+        base_url: "https://api.openai.com/v1",
+        default_model: "gpt-4o",
+        available_models: "gpt-4o, gpt-4o-mini, o3-mini, o1, gpt-4-turbo, gpt-3.5-turbo",
+      },
+      {
+        id: "claude",
+        name: "Claude (Anthropic)",
+        enabled: 0,
+        is_active: 0,
+        base_url: "https://api.anthropic.com/v1",
+        default_model: "claude-3-7-sonnet-20250219",
+        available_models: "claude-3-7-sonnet-20250219, claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022, claude-3-opus-20240229",
+      },
+    ];
+
+    for (const p of defaultProviders) {
+      await prisma.$executeRaw`
+        INSERT IGNORE INTO \`llm_provider_configs\` (\`id\`, \`name\`, \`enabled\`, \`is_active\`, \`base_url\`, \`default_model\`, \`available_models\`)
+        VALUES (${p.id}, ${p.name}, ${p.enabled}, ${p.is_active}, ${p.base_url}, ${p.default_model}, ${p.available_models})
+      `;
+    }
+
     // Seed single pre-configured standard: Security
     const initialSecurityMarkdown = `# Application Security Baseline
 

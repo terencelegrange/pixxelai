@@ -232,3 +232,24 @@ model Standard {
   @@index([category])
   @@map("standards")
 }
+
+model LlmProviderConfig {
+  id               String    @id @db.VarChar(50) // "ollama", "antigravity", "codex", "claude"
+  name             String    @db.VarChar(100)
+  enabled          Int       @default(0) @db.TinyInt
+  is_active        Int       @default(0) @db.TinyInt // 1 if primary default engine
+  base_url         String?   @db.VarChar(500)
+  api_key          String?   @db.Text
+  default_model    String    @db.VarChar(100)
+  available_models String?   @db.Text
+  temperature      Float     @default(0.2)
+  max_tokens       Int       @default(4096)
+  timeout_seconds  Int       @default(60)
+  last_test_at     DateTime?
+  last_test_status String?   @db.VarChar(50)
+  last_test_msg    String?   @db.Text
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  @@map("llm_provider_configs")
+}

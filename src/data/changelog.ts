@@ -9,6 +9,7 @@
  * Format: { date: "YYYY-MM-DD", description: "Short description of the change" }
  */
 export const CHANGELOG: { date: string; description: string }[] = [
+  { date: "2026-10-20", description: "Added LLM Providers Integration in Settings — configure Ollama (local LLM), Antigravity (Google Gemini), Codex (OpenAI), and Claude (Anthropic) with API key masking, real-time connectivity testing with latency measurement, and primary review engine selection" },
   { date: "2026-10-09", description: "Added Forensic Screen Watermarking — admin configurable 45-degree tiled text, adjustable opacity, and scannable user session QR codes for leak prevention" },
   { date: "2026-10-09", description: "Added Personal Security Audit history in profile dropdown — tracks login method (Password, Passkeys, MFA Authenticator, Recovery Code), browser/OS, IP address, and timestamps" },
   { date: "2026-10-09", description: "Implemented Multi-Factor Authentication (MFA / TOTP) with Authenticator Apps (Google/Microsoft Authenticator), QR setup, 8 emergency recovery codes, admin toggle, and post-login 2FA verification" },

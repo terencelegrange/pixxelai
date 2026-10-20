@@ -33,6 +33,7 @@ yarn-error.log*
 !.env.example
 pixxelai.env
 !pixxelai.env.example
+site.config.json
 
 # vercel
 .vercel

@@ -731,6 +731,40 @@ const spec = {
       },
     },
 
+    // ── LLM Settings ─────────────────────────────────────────────────────
+    "/settings/llm": {
+      get: {
+        tags: ["Settings"],
+        summary: "Get LLM provider configurations",
+        description: "Returns configuration for Ollama, Antigravity, Codex, and Claude providers with masked API keys.",
+        responses: {
+          200: { description: "Provider configurations" },
+          401: { description: "Not authenticated" },
+        },
+      },
+      put: {
+        tags: ["Settings"],
+        summary: "Update LLM provider configuration",
+        description: "Update model, URL, API key, or designate as the active review engine.",
+        responses: {
+          200: { description: "Updated successfully" },
+          401: { description: "Not authenticated" },
+          403: { description: "Forbidden" },
+        },
+      },
+    },
+    "/settings/llm/test": {
+      post: {
+        tags: ["Settings"],
+        summary: "Test LLM provider connection",
+        description: "Tests connectivity, authentication, and model list discovery for a specified provider.",
+        responses: {
+          200: { description: "Test result with latency" },
+          401: { description: "Not authenticated" },
+        },
+      },
+    },
+
     // ── OpenAPI ─────────────────────────────────────────────────────────
     "/openapi": {
       get: {
