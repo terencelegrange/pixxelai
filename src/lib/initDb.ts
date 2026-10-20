@@ -220,12 +220,12 @@ export async function initDb() {
     // Seed default observability rows
     await prisma.$executeRaw`
       INSERT IGNORE INTO \`observability_config\` (\`type\`, \`enabled\`, \`endpoint\`, \`site_id\`, \`log_level\`)
-      VALUES ('analytics', 0, 'http://192.168.100.228:8030/api/collect', 'boilerplate', 'info')
+      VALUES ('analytics', 0, 'http://192.168.100.228:8030/api/collect', 'pixxelai', 'info')
     `;
 
     await prisma.$executeRaw`
       INSERT IGNORE INTO \`observability_config\` (\`type\`, \`enabled\`, \`endpoint\`, \`api_key\`, \`site_id\`, \`log_level\`)
-      VALUES ('logcollector', 0, 'http://192.168.100.228:8020/ingest', '', 'boilerplate', 'info')
+      VALUES ('logcollector', 0, 'http://192.168.100.228:8020/ingest', '', 'pixxelai', 'info')
     `;
 
     // Seed default role permissions

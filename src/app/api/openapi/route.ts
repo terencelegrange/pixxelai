@@ -4,9 +4,9 @@ import { getSession } from "@/lib/auth";
 const spec = {
   openapi: "3.0.3",
   info: {
-    title: "Boilerplate Admin API",
+    title: "PixxelAI API",
     version: "1.0.0",
-    description: "REST API for the Boilerplate admin application.",
+    description: "REST API for the PixxelAI platform.",
   },
   servers: [{ url: "/api", description: "Current server" }],
   components: {

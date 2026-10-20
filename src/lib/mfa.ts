@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 
-export const ISSUER_NAME = "Boilerplate App";
+export const ISSUER_NAME = "PixxelAI";
 
 export function createTotpInstance(email: string, secretBase32?: string) {
   return new OTPAuth.TOTP({

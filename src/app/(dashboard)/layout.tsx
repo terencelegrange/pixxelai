@@ -87,15 +87,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <aside className="w-60 flex-shrink-0 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 flex flex-col">
         {/* Logo */}
-        <div className="px-5 py-5 border-b border-gray-200 dark:border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
-              <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+        <div className="px-5 py-4 border-b border-gray-200 dark:border-slate-800">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center flex-shrink-0 shadow-sm shadow-indigo-500/20">
+              <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <rect x="3" y="3" width="7" height="7" rx="1.5" fill="currentColor" fillOpacity="0.9" />
+                <rect x="14" y="3" width="7" height="7" rx="1.5" fill="currentColor" fillOpacity="0.6" />
+                <rect x="3" y="14" width="7" height="7" rx="1.5" fill="currentColor" fillOpacity="0.6" />
+                <circle cx="17.5" cy="17.5" r="3.5" fill="#38BDF8" />
+                <path d="M17.5 15.5v4M15.5 17.5h4" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </div>
-            <span className="text-sm font-semibold text-gray-900 dark:text-white">Admin</span>
-          </div>
+            <div>
+              <span className="text-base font-bold text-gray-900 dark:text-white tracking-tight">Pixxel<span className="text-cyan-500">AI</span></span>
+              <p className="text-[10px] text-gray-500 dark:text-slate-400 font-medium leading-none">Intelligence Platform</p>
+            </div>
+          </Link>
         </div>
 
         {/* Nav */}

@@ -23,7 +23,7 @@ export function getRPConfig(req: NextRequest) {
   }
 
   const rpID = hostname;
-  const rpName = "Boilerplate App";
+  const rpName = "PixxelAI";
 
   return { rpID, rpName, origin };
 }

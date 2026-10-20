@@ -268,12 +268,16 @@ export default function LoginPage() {
     <div className="min-h-full flex items-center justify-center px-4 bg-gray-50 dark:bg-slate-950">
       <div className={view === "profiles" ? "w-full max-w-2xl" : "w-full max-w-sm"}>
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-4">
-            <svg className="w-7 h-7 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 mb-4 shadow-md shadow-indigo-500/20">
+            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="3" y="3" width="7" height="7" rx="1.5" fill="currentColor" fillOpacity="0.9" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" fill="currentColor" fillOpacity="0.6" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" fill="currentColor" fillOpacity="0.6" />
+              <circle cx="17.5" cy="17.5" r="3.5" fill="#38BDF8" />
+              <path d="M17.5 15.5v4M15.5 17.5h4" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Pixxel<span className="text-cyan-500">AI</span></h1>
           <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">
             {view === "profiles"
               ? "Who's signing in?"

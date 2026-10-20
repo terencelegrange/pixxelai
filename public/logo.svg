@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 36" fill="none" role="img" aria-label="PixxelAI Logo">
+  <defs>
+    <linearGradient id="logo-ai-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#818CF8" />
+    </linearGradient>
+  </defs>
+  <!-- Icon emblem -->
+  <g transform="translate(2, 2)">
+    <rect width="32" height="32" rx="8" fill="#0F172A" />
+    <rect x="5" y="5" width="9" height="9" rx="2.5" fill="#6366F1" />
+    <rect x="18" y="5" width="9" height="9" rx="2.5" fill="#818CF8" fill-opacity="0.85" />
+    <rect x="5" y="18" width="9" height="9" rx="2.5" fill="#4F46E5" fill-opacity="0.7" />
+    <rect x="18" y="18" width="9" height="9" rx="2.5" fill="url(#logo-ai-glow)" />
+    <path d="M22.5 19.5v6M19.5 22.5h6" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" />
+  </g>
+  <!-- Wordmark -->
+  <text x="44" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" letter-spacing="-0.5" fill="#0F172A">
+    Pixxel<tspan fill="#06B6D4">AI</tspan>
+  </text>
+</svg>
