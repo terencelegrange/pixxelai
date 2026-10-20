@@ -8,16 +8,21 @@ datasource db {
 }
 
 model User {
-  id            Int         @id @default(autoincrement())
-  email         String      @unique @db.VarChar(200)
-  password_hash String      @db.VarChar(255)
-  name          String?     @db.VarChar(200)
-  role          String      @default("user") @db.VarChar(20)
-  status        String      @default("pending") @db.VarChar(20)
-  theme         String      @default("dark") @db.VarChar(10)
-  created_at    DateTime    @default(now())
-  updated_at    DateTime    @updatedAt
-  audit_logs    AuditLog[]
+  id                  Int                 @id @default(autoincrement())
+  email               String              @unique @db.VarChar(200)
+  password_hash       String              @db.VarChar(255)
+  name                String?             @db.VarChar(200)
+  role                String              @default("user") @db.VarChar(20)
+  status              String              @default("pending") @db.VarChar(20)
+  theme               String              @default("dark") @db.VarChar(10)
+  avatar              Int?                @db.SmallInt
+  created_at          DateTime            @default(now())
+  updated_at          DateTime            @updatedAt
+  audit_logs          AuditLog[]
+  user_mfa            UserMfa?
+  passkey_credentials PasskeyCredential[]
+  api_keys            ApiKey[]
+  device_tokens       DeviceToken[]
 
   @@map("users")
 }
@@ -34,6 +39,126 @@ model AuditLog {
   created_at  DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+model FeatureFlag {
+  key         String   @id @db.VarChar(50)
+  enabled     Int      @default(1) @db.TinyInt
+  label       String   @db.VarChar(100)
+  description String   @db.VarChar(255)
+
+  @@map("feature_flags")
+}
+
+model Changelog {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @db.Date
+  description String   @db.Text
+  created_at  DateTime @default(now())
+
+  @@map("changelog")
+}
+
+model UserMfa {
+  user_id      Int      @id
+  secret       String   @db.VarChar(128)
+  enabled      Int      @default(0) @db.TinyInt
+  backup_codes String?  @db.Text
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now()) @updatedAt
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_mfa")
+}
+
+model WatermarkConfig {
+  id          Int      @id @default(1)
+  enabled     Int      @default(0) @db.TinyInt
+  custom_text String   @default("{{email}} • CONFIDENTIAL") @db.VarChar(255)
+  show_qr     Int      @default(1) @db.TinyInt
+  opacity     Int      @default(7)
+  font_size   Int      @default(12)
+  updated_at  DateTime @default(now()) @updatedAt
+
+  @@map("watermark_config")
+}
+
+model RolePermission {
+  role    String @db.VarChar(20)
+  nav_key String @db.VarChar(50)
+
+  @@id([role, nav_key])
+  @@map("role_permissions")
+}
+
+model PasskeyCredential {
+  id          String    @id @db.VarChar(255)
+  user_id     Int
+  public_key  String    @db.Text
+  counter     BigInt    @default(0)
+  device_type String    @default("singleDevice") @db.VarChar(64)
+  backed_up   Int       @default(0) @db.TinyInt
+  transports  String?   @db.VarChar(255)
+  name        String    @default("Passkey") @db.VarChar(200)
+  created_at  DateTime  @default(now())
+  last_used   DateTime? @db.DateTime(0)
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("passkey_credentials")
+}
+
+model PasskeyChallenge {
+  id         String   @id @db.VarChar(255)
+  challenge  String   @db.VarChar(255)
+  user_id    Int?
+  expires_at DateTime @db.DateTime(0)
+  created_at DateTime @default(now())
+
+  @@map("passkey_challenges")
+}
+
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  key_hash   String    @db.VarChar(64)
+  prefix     String    @unique @db.VarChar(12)
+  name       String    @db.VarChar(200)
+  contact    String    @db.VarChar(200)
+  expires_at DateTime? @db.DateTime(0)
+  created_by Int?
+  user       User?     @relation(fields: [created_by], references: [id], onDelete: SetNull)
+  created_at DateTime  @default(now())
+  last_used  DateTime? @db.DateTime(0)
+  active     Int       @default(1) @db.TinyInt
+
+  @@index([created_by])
+  @@map("api_keys")
+}
+
+model DeviceToken {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  token_hash String    @unique @db.VarChar(64)
+  created_at DateTime  @default(now())
+  last_used  DateTime? @db.DateTime(0)
+  expires_at DateTime  @db.DateTime(0)
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("device_tokens")
+}
+
+model ObservabilityConfig {
+  type           String   @id @db.VarChar(50)
+  enabled        Int      @default(0) @db.TinyInt
+  endpoint       String   @db.VarChar(255)
+  api_key        String?  @db.VarChar(255)
+  site_id        String?  @db.VarChar(100)
+  log_level      String?  @default("info") @db.VarChar(20)
+  custom_headers String?  @db.Text
+  updated_at     DateTime @default(now()) @updatedAt
+
+  @@map("observability_config")
 }
 
 model PixxelSyncConfig {
@@ -107,4 +232,3 @@ model Standard {
   @@index([category])
   @@map("standards")
 }
-
