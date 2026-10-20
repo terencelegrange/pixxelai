@@ -69,6 +69,7 @@ EOF
                     sh """
                         ssh ${REMOTE_USER}@${REMOTE_HOST} "
                             cd ${DEPLOY_DIR}
+                            docker network prune -f || true
                             docker compose build
                             docker compose up -d
                         "

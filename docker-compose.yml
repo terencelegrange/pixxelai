@@ -6,6 +6,7 @@ services:
     image: pixxelai:latest
     container_name: pixxelai
     restart: unless-stopped
+    network_mode: bridge
     ports:
       - "7008:3334"
     env_file:
