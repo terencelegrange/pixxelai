@@ -385,6 +385,79 @@ export async function initDb() {
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `;
 
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`workflow_configs\` (
+        \`id\`                VARCHAR(36) NOT NULL,
+        \`standard_id\`       VARCHAR(36) NULL,
+        \`category\`          VARCHAR(50) NOT NULL DEFAULT 'Security',
+        \`assigned_role\`     VARCHAR(50) NOT NULL DEFAULT 'security',
+        \`auto_create_tasks\` TINYINT(1) NOT NULL DEFAULT 1,
+        \`created_at\`        DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\`        DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        UNIQUE KEY \`workflow_configs_cat_std_key\` (\`category\`, \`standard_id\`)
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`review_tasks\` (
+        \`id\`                  VARCHAR(36) NOT NULL,
+        \`application_id\`      VARCHAR(36) NOT NULL,
+        \`assessment_id\`       VARCHAR(36) NOT NULL,
+        \`assessment_item_id\`  VARCHAR(36) NOT NULL,
+        \`standard_id\`         VARCHAR(100) NOT NULL,
+        \`standard_title\`      VARCHAR(255) NOT NULL,
+        \`category\`            VARCHAR(50) NOT NULL DEFAULT 'Security',
+        \`assigned_role\`       VARCHAR(50) NOT NULL DEFAULT 'security',
+        \`assigned_to_user_id\` INT NULL,
+        \`status\`              VARCHAR(50) NOT NULL DEFAULT 'pending',
+        \`severity\`            VARCHAR(50) NOT NULL DEFAULT 'Medium',
+        \`resolution_notes\`    TEXT NULL,
+        \`clarification_req\`   TEXT NULL,
+        \`last_recheck_at\`     DATETIME(3) NULL,
+        \`recheck_count\`       INT NOT NULL DEFAULT 0,
+        \`created_at\`          DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updated_at\`          DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        KEY \`review_tasks_app_fk\` (\`application_id\`),
+        KEY \`review_tasks_ass_fk\` (\`assessment_id\`),
+        KEY \`review_tasks_item_fk\` (\`assessment_item_id\`),
+        KEY \`review_tasks_user_fk\` (\`assigned_to_user_id\`),
+        CONSTRAINT \`review_tasks_app_fk\` FOREIGN KEY (\`application_id\`) REFERENCES \`applications\` (\`id\`) ON DELETE CASCADE,
+        CONSTRAINT \`review_tasks_ass_fk\` FOREIGN KEY (\`assessment_id\`) REFERENCES \`assessments\` (\`id\`) ON DELETE CASCADE,
+        CONSTRAINT \`review_tasks_item_fk\` FOREIGN KEY (\`assessment_item_id\`) REFERENCES \`assessment_items\` (\`id\`) ON DELETE CASCADE,
+        CONSTRAINT \`review_tasks_user_fk\` FOREIGN KEY (\`assigned_to_user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE SET NULL
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS \`task_activities\` (
+        \`id\`          VARCHAR(36) NOT NULL,
+        \`task_id\`     VARCHAR(36) NOT NULL,
+        \`user_id\`     INT NULL,
+        \`action\`      VARCHAR(50) NOT NULL,
+        \`from_status\` VARCHAR(50) NULL,
+        \`to_status\`   VARCHAR(50) NULL,
+        \`comment\`     TEXT NULL,
+        \`created_at\`  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        KEY \`task_activities_task_fk\` (\`task_id\`),
+        KEY \`task_activities_user_fk\` (\`user_id\`),
+        CONSTRAINT \`task_activities_task_fk\` FOREIGN KEY (\`task_id\`) REFERENCES \`review_tasks\` (\`id\`) ON DELETE CASCADE,
+        CONSTRAINT \`task_activities_user_fk\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE SET NULL
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `;
+
+    // Seed default workflow mappings
+    await prisma.$executeRaw`
+      INSERT IGNORE INTO \`workflow_configs\` (\`id\`, \`category\`, \`assigned_role\`, \`auto_create_tasks\`)
+      VALUES 
+        ('wf-security', 'Security', 'security', 1),
+        ('wf-architecture', 'Architecture', 'architecture', 1),
+        ('wf-privacy', 'Privacy', 'security', 1),
+        ('wf-compliance', 'Compliance', 'security', 1)
+    `;
+
     // Seed default LLM providers
     const defaultProviders = [
       {

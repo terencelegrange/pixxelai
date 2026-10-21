@@ -815,6 +815,80 @@ const spec = {
       },
     },
 
+    // ── Workflow & Tasks ──────────────────────────────────────────────────
+    "/settings/workflow": {
+      get: {
+        tags: ["Workflow"],
+        summary: "Get workflow configurations",
+        description: "Lists assigned reviewer roles for standard categories and task generation rules.",
+        responses: {
+          200: { description: "Workflow configuration mapping" },
+          401: { description: "Not authenticated" },
+        },
+      },
+      put: {
+        tags: ["Workflow"],
+        summary: "Update workflow rules",
+        description: "Updates role assignments and task generation settings for governance categories.",
+        responses: {
+          200: { description: "Updated workflow configuration" },
+          401: { description: "Not authenticated" },
+          403: { description: "Forbidden" },
+        },
+      },
+    },
+    "/tasks": {
+      get: {
+        tags: ["Tasks"],
+        summary: "List assigned review tasks",
+        description: "Returns remediation and standard review tasks filtered by user role or assignment.",
+        responses: {
+          200: { description: "List of review tasks" },
+          401: { description: "Not authenticated" },
+        },
+      },
+    },
+    "/tasks/{id}": {
+      get: {
+        tags: ["Tasks"],
+        summary: "Get task details and history",
+        description: "Returns task data, evidence, and activity log.",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          200: { description: "Task details" },
+          404: { description: "Not found" },
+        },
+      },
+      patch: {
+        tags: ["Tasks"],
+        summary: "Perform task status action",
+        description: "Approve, reject, seek clarification, or assign to developer.",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          200: { description: "Updated task" },
+          404: { description: "Not found" },
+        },
+      },
+    },
+    "/tasks/{id}/recheck": {
+      post: {
+        tags: ["Tasks"],
+        summary: "Trigger targeted single control re-check",
+        description: "Pulls latest repository commit and executes focused LLM re-evaluation of this control.",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          200: { description: "Re-check evaluation result and updated score" },
+          400: { description: "Re-check failed" },
+        },
+      },
+    },
+
     // ── OpenAPI ─────────────────────────────────────────────────────────
     "/openapi": {
       get: {

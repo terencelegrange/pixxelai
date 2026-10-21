@@ -334,6 +334,48 @@ Perform the assessment and return the strict JSON output.`;
           completed_at: new Date(),
         },
       });
+
+      // Generate Review Tasks based on Workflow Configuration
+      const wfConfig = await tx.workflowConfig.findFirst({
+        where: { category: assessment.category },
+      });
+
+      const assignedRole = wfConfig?.assigned_role || "security";
+      const shouldCreateTasks = wfConfig?.auto_create_tasks ?? 1;
+
+      if (shouldCreateTasks) {
+        // Query the newly inserted items to link tasks
+        const savedItems = await tx.assessmentItem.findMany({
+          where: { assessment_id: assessmentId },
+        });
+
+        for (const it of savedItems) {
+          if (it.result === "Does Not Meet" || it.result === "Partially Meets") {
+            const task = await tx.reviewTask.create({
+              data: {
+                application_id: app.id,
+                assessment_id: assessmentId,
+                assessment_item_id: it.id,
+                standard_id: it.standard_id,
+                standard_title: it.title,
+                category: it.category,
+                assigned_role: assignedRole,
+                status: "pending",
+                severity: it.severity,
+              },
+            });
+
+            await tx.taskActivity.create({
+              data: {
+                task_id: task.id,
+                action: "created",
+                to_status: "pending",
+                comment: `Task automatically spawned from ${it.category} assessment. Result: ${it.result}.`,
+              },
+            });
+          }
+        }
+      }
     });
 
     console.log(`[AssessmentEngine] Assessment ${assessmentId} completed successfully. Score: ${calculatedScore}%`);
@@ -358,3 +400,220 @@ Perform the assessment and return the strict JSON output.`;
     }
   }
 }
+
+/**
+ * Executes a targeted re-check on a single control/standard task.
+ */
+export async function recheckSingleControl(
+  taskId: string,
+  userId?: number
+): Promise<{ ok: boolean; result?: string; evidence?: string; compliance_score?: number; error?: string }> {
+  const task = await prisma.reviewTask.findUnique({
+    where: { id: taskId },
+    include: {
+      application: true,
+      assessment: true,
+      assessment_item: true,
+    },
+  });
+
+  if (!task) {
+    return { ok: false, error: "Task not found." };
+  }
+
+  const app = task.application;
+  const tempDir = path.join(os.tmpdir(), `pixxelai_recheck_${task.id}_${Date.now()}`);
+  let repoCloned = false;
+  let fileTree: string[] = [];
+  let snippets: Record<string, string> = {};
+
+  try {
+    if (app.repo_url) {
+      try {
+        await execAsync(`git clone --depth 1 --single-branch "${app.repo_url}" "${tempDir}"`, {
+          timeout: 45000,
+        });
+        repoCloned = true;
+        const repoData = inspectRepository(tempDir);
+        fileTree = repoData.fileTree;
+        snippets = repoData.snippets;
+      } catch (err: any) {
+        console.warn(`[Recheck] Git clone failed:`, err.message);
+      }
+    }
+
+    // Fetch baseline standard for reference context
+    const standard = await prisma.standard.findFirst({
+      where: { category: task.category },
+    });
+
+    const systemPrompt = `You are a Principal Security Architect and Compliance Auditor.
+Your task is to re-evaluate a SINGLE specific security control for a software application:
+Control: ${task.standard_id} - ${task.standard_title}
+
+The previous evaluation result was: "${task.assessment_item.result}".
+You must inspect the latest repository files and code snippets, and determine whether the fix or current implementation satisfies the requirement.
+
+Assign one of these exact result classifications:
+- "Meets": Evidence confirms the control is properly designed, configured, and implemented.
+- "Partially Meets": Partial implementation exists, but with remaining gaps or risks.
+- "Does Not Meet": Control is missing, violated, or unmitigated.
+- "Not Applicable": Control is irrelevant due to application architecture.
+
+Output ONLY a JSON object with this exact schema:
+{
+  "result": "Meets",
+  "evidence": "Concrete observations and file findings from the latest codebase",
+  "recommendation": "Next steps or confirmation of compliance"
+}`;
+
+    let codebaseContext = "No repository URL configured.";
+    if (app.repo_url) {
+      if (repoCloned) {
+        codebaseContext = `Repository: ${app.repo_url}\nLatest files:\n${fileTree.slice(0, 60).join("\n")}\n\n`;
+        if (Object.keys(snippets).length > 0) {
+          codebaseContext += "Configuration & Code Snippets:\n";
+          for (const [filename, code] of Object.entries(snippets)) {
+            codebaseContext += `--- ${filename} ---\n${code}\n\n`;
+          }
+        }
+      } else {
+        codebaseContext = `Repository: ${app.repo_url} (Could not clone; evaluating metadata).`;
+      }
+    }
+
+    const userPrompt = `Re-evaluate Control: ${task.standard_id} - ${task.standard_title}
+
+APPLICATION CONTEXT:
+- Name: ${app.name}
+- Category: ${app.category}
+- Type: ${app.type}
+- Repo URL: ${app.repo_url || "N/A"}
+- Description: ${app.description || "N/A"}
+
+LATEST REPOSITORY AUDIT:
+${codebaseContext}
+
+STANDARD GUIDELINES:
+${standard?.content?.slice(0, 1500) || "Ensure baseline security and configuration integrity."}
+
+Return the JSON evaluation for this control.`;
+
+    const llmRes = await callLlm({
+      prompt: userPrompt,
+      systemPrompt,
+      temperature: 0.1,
+      maxTokens: 2048,
+    });
+
+    let rawText = llmRes.text.trim();
+    if (rawText.startsWith("```")) {
+      rawText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    }
+
+    let parsed: { result: string; evidence: string; recommendation: string };
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      const match = rawText.match(/\{[\s\S]*\}/);
+      if (match) parsed = JSON.parse(match[0]);
+      else throw new Error("Failed to parse LLM re-check JSON output.");
+    }
+
+    let normalizedResult: "Meets" | "Partially Meets" | "Does Not Meet" | "Not Applicable" = "Meets";
+    const resLower = (parsed.result || "").toLowerCase();
+    if (resLower.includes("partially")) normalizedResult = "Partially Meets";
+    else if (resLower.includes("does not") || resLower.includes("fail")) normalizedResult = "Does Not Meet";
+    else if (resLower.includes("not applicable") || resLower === "n/a") normalizedResult = "Not Applicable";
+
+    // Update AssessmentItem
+    await prisma.assessmentItem.update({
+      where: { id: task.assessment_item_id },
+      data: {
+        result: normalizedResult,
+        evidence: parsed.evidence || task.assessment_item.evidence,
+        recommendation: parsed.recommendation || task.assessment_item.recommendation,
+      },
+    });
+
+    // Recalculate Assessment compliance score
+    const allItems = await prisma.assessmentItem.findMany({
+      where: { assessment_id: task.assessment_id },
+    });
+
+    let meetsCount = 0;
+    let partialCount = 0;
+    let failsCount = 0;
+    let naCount = 0;
+
+    for (const it of allItems) {
+      if (it.result === "Meets") meetsCount++;
+      else if (it.result === "Partially Meets") partialCount++;
+      else if (it.result === "Does Not Meet") failsCount++;
+      else if (it.result === "Not Applicable") naCount++;
+    }
+
+    const applicableCount = allItems.length - naCount;
+    let newScore = 100;
+    if (applicableCount > 0) {
+      newScore = Math.round(((meetsCount * 100) + (partialCount * 50)) / applicableCount);
+    }
+
+    await prisma.assessment.update({
+      where: { id: task.assessment_id },
+      data: {
+        compliance_score: newScore,
+        meets_count: meetsCount,
+        partial_count: partialCount,
+        fails_count: failsCount,
+        na_count: naCount,
+      },
+    });
+
+    // Update Task status
+    const oldStatus = task.status;
+    const newStatus = normalizedResult === "Meets" ? "approved" : task.status;
+    const notes =
+      normalizedResult === "Meets"
+        ? "Re-check passed: control confirmed as Meets."
+        : `Re-check run: control evaluated as ${normalizedResult}.`;
+
+    await prisma.reviewTask.update({
+      where: { id: taskId },
+      data: {
+        status: newStatus,
+        last_recheck_at: new Date(),
+        recheck_count: { increment: 1 },
+        resolution_notes: notes,
+      },
+    });
+
+    await prisma.taskActivity.create({
+      data: {
+        task_id: taskId,
+        user_id: userId || null,
+        action: "recheck_run",
+        from_status: oldStatus,
+        to_status: newStatus,
+        comment: `Targeted re-check executed via ${llmRes.provider} (${llmRes.model}). Result: ${normalizedResult}. Evidence: ${(parsed.evidence || "").slice(0, 300)}`,
+      },
+    });
+
+    return {
+      ok: true,
+      result: normalizedResult,
+      evidence: parsed.evidence,
+      compliance_score: newScore,
+    };
+  } catch (err: any) {
+    console.error(`[Recheck] Failed for task ${taskId}:`, err);
+    return { ok: false, error: err.message || "Re-check failed." };
+  } finally {
+    if (fs.existsSync(tempDir)) {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+    }
+  }
+}
+

@@ -23,6 +23,8 @@ model User {
   passkey_credentials PasskeyCredential[]
   api_keys            ApiKey[]
   device_tokens       DeviceToken[]
+  assigned_tasks      ReviewTask[]        @relation("UserAssignedTasks")
+  task_activities     TaskActivity[]      @relation("UserTaskActivities")
 
   @@map("users")
 }
@@ -212,6 +214,7 @@ model Application {
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
   assessments        Assessment[]
+  review_tasks       ReviewTask[]
 
   @@index([category])
   @@index([lifecycle_status])
@@ -276,6 +279,7 @@ model Assessment {
   created_at       DateTime         @default(now())
   updated_at       DateTime         @updatedAt
   items            AssessmentItem[]
+  tasks            ReviewTask[]
 
   @@index([application_id])
   @@index([status])
@@ -295,8 +299,72 @@ model AssessmentItem {
   evidence       String?    @db.Text
   recommendation String?    @db.Text
   created_at     DateTime   @default(now())
+  tasks          ReviewTask[]
 
   @@index([assessment_id])
   @@index([result])
   @@map("assessment_items")
 }
+
+model WorkflowConfig {
+  id                String   @id @default(cuid()) @db.VarChar(36)
+  standard_id       String?  @db.VarChar(36)
+  category          String   @default("Security") @db.VarChar(50)
+  assigned_role     String   @default("security") @db.VarChar(50)
+  auto_create_tasks Int      @default(1) @db.TinyInt
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  @@index([category])
+  @@index([standard_id])
+  @@map("workflow_configs")
+}
+
+model ReviewTask {
+  id                  String          @id @default(cuid()) @db.VarChar(36)
+  application_id      String          @db.VarChar(36)
+  assessment_id       String          @db.VarChar(36)
+  assessment_item_id  String          @db.VarChar(36)
+  standard_id         String          @db.VarChar(100) // e.g. "SEC-03"
+  standard_title      String          @db.VarChar(255)
+  category            String          @default("Security") @db.VarChar(50)
+  assigned_role       String          @default("security") @db.VarChar(50)
+  assigned_to_user_id Int?
+  status              String          @default("pending") @db.VarChar(50)
+  // "pending", "approved", "rejected", "clarification_needed", "assigned_to_developer"
+  severity            String          @default("Medium") @db.VarChar(50)
+  resolution_notes    String?         @db.Text
+  clarification_req   String?         @db.Text
+  last_recheck_at     DateTime?
+  recheck_count       Int             @default(0)
+  created_at          DateTime        @default(now())
+  updated_at          DateTime        @updatedAt
+
+  application         Application     @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  assessment          Assessment      @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  assessment_item     AssessmentItem  @relation(fields: [assessment_item_id], references: [id], onDelete: Cascade)
+  assigned_user       User?           @relation("UserAssignedTasks", fields: [assigned_to_user_id], references: [id], onDelete: SetNull)
+  activities          TaskActivity[]
+
+  @@index([assigned_role, status])
+  @@index([application_id])
+  @@map("review_tasks")
+}
+
+model TaskActivity {
+  id          String     @id @default(cuid()) @db.VarChar(36)
+  task_id     String     @db.VarChar(36)
+  user_id     Int?
+  action      String     @db.VarChar(50) // "created", "status_change", "recheck_run", "comment"
+  from_status String?    @db.VarChar(50)
+  to_status   String?    @db.VarChar(50)
+  comment     String?    @db.Text
+  created_at  DateTime   @default(now())
+
+  task        ReviewTask @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  user        User?      @relation("UserTaskActivities", fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([task_id])
+  @@map("task_activities")
+}
+

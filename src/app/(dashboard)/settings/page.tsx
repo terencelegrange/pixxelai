@@ -25,6 +25,13 @@ const TILES: { key: string; label: string; description: string; icon: string; hr
     href: "/settings/llm",
   },
   {
+    key: "workflow",
+    label: "Workflow Config",
+    description: "Map governance standards to specialist reviewer roles and task assignment rules",
+    icon: "M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z M13.5 3.07v7.43h7.43A7.51 7.51 0 0013.5 3.07z",
+    href: "/settings/workflow",
+  },
+  {
     key: "users",
     label: "Users",
     description: "Manage user accounts, roles, and approval status",
