@@ -14,7 +14,7 @@ describe("Unit: Navigation & RBAC Permissions (data/nav)", () => {
     }
   });
 
-  it("NAV_ITEMS should contain core navigation entries including compliance and tasks", () => {
+  it("NAV_ITEMS should contain core navigation entries including compliance, processing, and tasks", () => {
     const keys = NAV_ITEMS.map((i) => i.key);
     expect(keys).toContain("dashboard");
     expect(keys).toContain("applications");
@@ -22,6 +22,7 @@ describe("Unit: Navigation & RBAC Permissions (data/nav)", () => {
     expect(keys).toContain("assessments");
     expect(keys).toContain("tasks");
     expect(keys).toContain("compliance");
+    expect(keys).toContain("processing");
     expect(keys).toContain("settings");
   });
 
@@ -38,14 +39,18 @@ describe("Unit: Navigation & RBAC Permissions (data/nav)", () => {
   it("DEFAULT_ROLE_PERMISSIONS should grant admin full access and role-specific access for specialists", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain("settings");
     expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain("compliance");
+    expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain("processing");
     expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain("tasks");
 
     expect(DEFAULT_ROLE_PERMISSIONS.security).toContain("compliance");
+    expect(DEFAULT_ROLE_PERMISSIONS.security).toContain("processing");
     expect(DEFAULT_ROLE_PERMISSIONS.security).toContain("tasks");
     expect(DEFAULT_ROLE_PERMISSIONS.security).toContain("standards");
     expect(DEFAULT_ROLE_PERMISSIONS.security).not.toContain("settings");
 
+    expect(DEFAULT_ROLE_PERMISSIONS.viewer).toContain("processing");
     expect(DEFAULT_ROLE_PERMISSIONS.developer).toContain("tasks");
+    expect(DEFAULT_ROLE_PERMISSIONS.developer).toContain("processing");
     expect(DEFAULT_ROLE_PERMISSIONS.developer).not.toContain("settings");
   });
 });

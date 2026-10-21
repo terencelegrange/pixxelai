@@ -903,6 +903,28 @@ const spec = {
         },
       },
     },
+    "/reporting/processing": {
+      get: {
+        tags: ["Reporting"],
+        summary: "Get active and queued assessment processing telemetry",
+        description: "Returns actively running assessments, FIFO queued backlog, recent executions, and worker capacity metrics.",
+        responses: {
+          200: { description: "Processing queue status and jobs" },
+        },
+      },
+      delete: {
+        tags: ["Reporting"],
+        summary: "Cancel or dequeue pending assessment",
+        description: "Cancels and deletes an assessment job while it is still waiting in the queued backlog.",
+        parameters: [
+          { name: "id", in: "query", required: true, schema: { type: "string" }, description: "Assessment ID to cancel" },
+        ],
+        responses: {
+          200: { description: "Assessment cancelled and dequeued" },
+          400: { description: "Invalid ID or assessment already executing" },
+        },
+      },
+    },
 
     // ── OpenAPI ─────────────────────────────────────────────────────────
     "/openapi": {
