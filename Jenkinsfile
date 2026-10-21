@@ -57,6 +57,7 @@ EOF
                             --exclude='.next' \
                             --exclude='.env*' \
                             --exclude='pixxelai.env' \
+                            --exclude='site.config.json' \
                             ./ ${REMOTE_USER}@${REMOTE_HOST}:${DEPLOY_DIR}/
                     """
                 }
