@@ -19,6 +19,7 @@ export default function StandardsPage() {
   const [standards, setStandards] = useState<Standard[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
@@ -38,11 +39,23 @@ export default function StandardsPage() {
     setLoading(true);
     try {
       const url = selectedCategory === "all" ? "/api/standards" : `/api/standards?category=${encodeURIComponent(selectedCategory)}`;
-      const res = await fetch(url);
+      const [res, flagsRes] = await Promise.all([
+        fetch(url),
+        fetch("/api/feature-flags"),
+      ]);
+
       if (res.ok) {
         const data = await res.json();
         setStandards(data.standards || []);
         if (data.categories) setCategories(data.categories);
+      }
+      if (flagsRes.ok) {
+        const flagsData = await flagsRes.json();
+        const flagMap: Record<string, boolean> = {};
+        for (const [k, v] of Object.entries<any>(flagsData)) {
+          flagMap[k] = v.enabled;
+        }
+        setFlags(flagMap);
       }
     } catch (err) {
       console.error(err);
@@ -171,19 +184,27 @@ export default function StandardsPage() {
 
       {/* Category Filter Pills */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {["all", "Security", "Architecture", "Privacy", "Compliance"].map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
-              selectedCategory.toLowerCase() === cat.toLowerCase()
-                ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-sm"
-                : "bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"
-            }`}
-          >
-            {cat === "all" ? "All Categories" : cat}
-          </button>
-        ))}
+        {Array.from(new Set(["all", "Security", "Architecture", "Privacy", "Compliance", "Legal", "Quality", ...categories])).map((cat) => {
+          const catKey = `standards_${cat.toLowerCase()}`;
+          const isCatDisabled = cat !== "all" && flags[catKey] === false;
+
+          return (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition ${
+                selectedCategory.toLowerCase() === cat.toLowerCase()
+                  ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-sm"
+                  : "bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-gray-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800"
+              }`}
+            >
+              <span>{cat === "all" ? "All Categories" : cat}</span>
+              {isCatDisabled && (
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" title="Disabled in Feature Flags" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Standards Cards Grid */}
@@ -203,25 +224,44 @@ export default function StandardsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {standards.map((std) => {
             const isSecurity = std.slug === "security" || std.category.toLowerCase() === "security";
+            const normCat = std.category.toLowerCase();
+            const flagKey = `standards_${normCat}`;
+            const isFlagDisabled = flags[flagKey] === false;
+
             const badgeColor =
-              std.category.toLowerCase() === "security"
+              normCat === "security"
                 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                : std.category.toLowerCase() === "architecture"
-                ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
-                : std.category.toLowerCase() === "privacy"
+                : normCat === "architecture"
+                ? "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300"
+                : normCat === "privacy"
                 ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300"
+                : normCat === "legal"
+                ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                : normCat === "quality"
+                ? "bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300"
                 : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300";
 
             return (
               <div
                 key={std.id}
-                className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:border-indigo-400 dark:hover:border-slate-700 transition"
+                className={`bg-white dark:bg-slate-900 border rounded-2xl p-6 shadow-sm flex flex-col justify-between transition ${
+                  isFlagDisabled
+                    ? "border-dashed border-rose-300 dark:border-rose-900/60 opacity-80"
+                    : "border-gray-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-slate-700"
+                }`}
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${badgeColor}`}>
-                      {std.category}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${badgeColor}`}>
+                        {std.category}
+                      </span>
+                      {isFlagDisabled && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40">
+                          Flag Disabled
+                        </span>
+                      )}
+                    </div>
                     {std.source === "pixxel360" ? (
                       <span className="text-[11px] font-mono text-cyan-600 dark:text-cyan-400 font-semibold flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
@@ -297,11 +337,12 @@ export default function StandardsPage() {
                     onChange={(e) => setNewCategory(e.target.value)}
                     className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
+                    <option value="Security">Security</option>
                     <option value="Architecture">Architecture</option>
                     <option value="Privacy">Privacy</option>
                     <option value="Compliance">Compliance</option>
-                    <option value="Security">Security</option>
-                    <option value="Governance">Governance</option>
+                    <option value="Legal">Legal</option>
+                    <option value="Quality">Quality</option>
                   </select>
                 </div>
 

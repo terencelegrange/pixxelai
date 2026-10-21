@@ -5,6 +5,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { prisma } from "./prisma";
 import { callLlm } from "./llm";
+import { getEnabledStandards } from "./flags";
 
 const execAsync = promisify(exec);
 
@@ -149,11 +150,22 @@ export async function runAssessment(assessmentId: string): Promise<void> {
       data: { status: "analyzing" },
     });
 
-    const standard = await prisma.standard.findFirst({
-      where: { slug: "security" },
+    const enabledCategories = await getEnabledStandards();
+    const activeStandards = await prisma.standard.findMany({
+      where: {
+        category: { in: enabledCategories },
+      },
+      orderBy: { category: "asc" },
     });
 
-    const standardContent = standard?.content || `
+    let standardContent = "";
+    if (activeStandards.length > 0) {
+      standardContent = activeStandards.map((s) => s.content).join("\n\n---\n\n");
+    } else {
+      const fallbackStandard = await prisma.standard.findFirst({
+        where: { slug: "security" },
+      });
+      standardContent = fallbackStandard?.content || `
 # Application Security Baseline
 - SEC-01: SSO (Single Sign-On) - Corporate IdP SAML/OIDC integration
 - SEC-02: MFA (Multi-Factor Authentication) - Enforced for logins and admins
@@ -164,10 +176,11 @@ export async function runAssessment(assessmentId: string): Promise<void> {
 - SEC-07: Vulnerability Scanning & Patching - Regular dependency scans
 - SEC-08: Data Encryption in Transit & at Rest - TLS 1.2+ & AES-256
 `;
+    }
 
     // Phase 3: Construct LLM prompt
-    const systemPrompt = `You are a Principal Security Architect and Compliance Auditor.
-Your task is to assess a software application against the organization's Security Baseline standard.
+    const systemPrompt = `You are a Principal Enterprise Architect, Security Specialist, and Compliance Auditor.
+Your task is to assess a software application against the organization's active baseline standards (${enabledCategories.join(", ")}).
 You must review the application profile, repository structure, and configuration files, then provide a rigorous, objective evaluation for each mandatory control in the standard.
 
 For each control, assign one of these exact result classifications:

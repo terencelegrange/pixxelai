@@ -48,6 +48,7 @@ model FeatureFlag {
   enabled     Int      @default(1) @db.TinyInt
   label       String   @db.VarChar(100)
   description String   @db.VarChar(255)
+  category    String   @default("system") @db.VarChar(50)
 
   @@map("feature_flags")
 }

@@ -57,9 +57,16 @@ export async function initDb() {
         \`enabled\`     TINYINT(1) NOT NULL DEFAULT 1,
         \`label\`       VARCHAR(100) NOT NULL,
         \`description\` VARCHAR(255) NOT NULL,
+        \`category\`    VARCHAR(50) NOT NULL DEFAULT 'system',
         PRIMARY KEY (\`key\`)
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
     `;
+
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE \`feature_flags\` ADD COLUMN \`category\` VARCHAR(50) NOT NULL DEFAULT 'system'`);
+    } catch {
+      // Column already exists or table freshly created
+    }
 
     await prisma.$executeRaw`
       CREATE TABLE IF NOT EXISTS \`changelog\` (
@@ -80,19 +87,29 @@ export async function initDb() {
       `;
     }
 
-    // Seed default flags
+    // Seed default flags (System & Standards)
     const defaultFlags = [
-      { key: "signup",        label: "Sign Up",                         description: "Allow new users to register an account" },
-      { key: "dashboard",     label: "Dashboard",                       description: "Show the dashboard page in the navigation" },
-      { key: "menu",          label: "Navigation Menu",                 description: "Show navigation links in the sidebar" },
-      { key: "passkeys",      label: "Passkeys (FIDO2/WebAuthn)",       description: "Allow users to register and sign in with biometric passkeys and security keys" },
-      { key: "mfa",           label: "Multi-Factor Authentication (MFA)", description: "Allow users to configure and sign in with TOTP Authenticator Apps" },
-      { key: "watermarking",  label: "Forensic Watermarking",           description: "Display subtle 45-degree tiled watermark and user QR verification overlay" },
+      // System & Access Control Flags
+      { key: "signup",                 category: "system",    label: "Sign Up",                           description: "Allow new users to register an account" },
+      { key: "dashboard",              category: "system",    label: "Dashboard",                         description: "Show the dashboard page in the navigation" },
+      { key: "menu",                   category: "system",    label: "Navigation Menu",                   description: "Show navigation links in the sidebar" },
+      { key: "passkeys",               category: "system",    label: "Passkeys (FIDO2/WebAuthn)",         description: "Allow users to register and sign in with biometric passkeys and security keys" },
+      { key: "mfa",                    category: "system",    label: "Multi-Factor Authentication (MFA)",   description: "Allow users to configure and sign in with TOTP Authenticator Apps" },
+      { key: "watermarking",           category: "system",    label: "Forensic Watermarking",             description: "Display subtle 45-degree tiled watermark and user QR verification overlay" },
+
+      // Standards & Governance Flags
+      { key: "standards_security",     category: "standards", label: "Security Standards",               description: "Enable Security baseline standards, application hardening, and vulnerability controls" },
+      { key: "standards_architecture", category: "standards", label: "Architecture Standards",           description: "Enable Architecture baseline standards, system design, modularity, and resilience controls" },
+      { key: "standards_privacy",      category: "standards", label: "Privacy Standards",                description: "Enable Privacy baseline standards, data governance, PII handling, and user consent controls" },
+      { key: "standards_compliance",   category: "standards", label: "Compliance Standards",             description: "Enable Compliance baseline standards, regulatory requirements, and audit evidence checks" },
+      { key: "standards_legal",        category: "standards", label: "Legal Standards",                  description: "Enable Legal baseline standards, software licensing, and intellectual property review" },
+      { key: "standards_quality",      category: "standards", label: "Quality Standards",                description: "Enable Quality baseline standards, automated test coverage, static analysis, and code health checks" },
     ];
     for (const f of defaultFlags) {
       await prisma.$executeRaw`
-        INSERT IGNORE INTO feature_flags (\`key\`, enabled, label, description)
-        VALUES (${f.key}, 1, ${f.label}, ${f.description})
+        INSERT INTO feature_flags (\`key\`, enabled, label, description, category)
+        VALUES (${f.key}, 1, ${f.label}, ${f.description}, ${f.category})
+        ON DUPLICATE KEY UPDATE label = ${f.label}, description = ${f.description}, category = ${f.category}
       `;
     }
 
@@ -555,6 +572,159 @@ Applications must be evaluated based on their operational exposure and data sens
       INSERT IGNORE INTO \`standards\` (\`id\`, \`category\`, \`title\`, \`slug\`, \`description\`, \`content\`, \`source\`, \`item_count\`)
       VALUES ('std-security-core', 'Security', 'Application Security Baseline', 'security', 'Core baseline security controls and requirements for organizational applications', ${initialSecurityMarkdown}, 'pixxel360', 8)
     `;
+
+    const initialArchitectureMarkdown = `# System Architecture & Resilience Baseline
+
+## 1. Overview
+Defines fundamental software architecture requirements for organizational applications, emphasizing modularity, stateless horizontal scalability, robust API contracts, and graceful fault tolerance.
+
+## 2. Applicability
+Mandatory for all microservices, web applications, and backend services deployed in the organization's cloud and homelab infrastructure.
+
+## 3. Mandatory Architecture Controls
+
+| Control Identifier | Control Name | Severity | Default Weight | Description |
+|---|---|---|---|---|
+| **ARCH-01** | Modular & Service Separation | High | 8 | Clean bounded contexts and decoupled domain services with well-defined interfaces. |
+| **ARCH-02** | Stateless Application Tier | High | 8 | Horizontal scalability without in-memory session pinning; session state persisted externally. |
+| **ARCH-03** | API Contract & Versioning | Medium | 6 | Formal API specifications (OpenAPI/GraphQL) enforcing backwards compatibility. |
+| **ARCH-04** | Resilience & Circuit Breaking | High | 8 | Graceful degradation, timeout management, retries with jitter, and circuit breaking. |
+| **ARCH-05** | Connection Pooling & Caching | Medium | 6 | Controlled database connection pooling and distributed cache layer to prevent saturation. |
+| **ARCH-06** | Asynchronous Processing | Medium | 6 | Decoupled queue/worker architecture for long-running workflows and background tasks. |
+
+---
+
+## 4. Verification Checklist
+- [ ] Application state stored in external persistent stores (Redis, database), not local container memory
+- [ ] API endpoints versioned (/api/v1) or governed with explicit contracts
+- [ ] Network client calls implement timeouts and retry policies
+- [ ] Database client configures connection pool limits
+`;
+
+    const initialPrivacyMarkdown = `# Data Privacy & Protection Baseline
+
+## 1. Overview
+Establishes mandatory privacy engineering controls governing personal information (PII) collection, consent management, storage minimization, and subject rights enforcement.
+
+## 2. Applicability
+Applies to all systems that process, store, or transmit personally identifiable information (PII) or confidential client data.
+
+## 3. Mandatory Privacy Controls
+
+| Control Identifier | Control Name | Severity | Default Weight | Description |
+|---|---|---|---|---|
+| **PRIV-01** | Data Minimization & PII Inventory | Critical | 10 | Restrict personal data collection to strictly defined and justified business purposes. |
+| **PRIV-02** | Consent & Preference Management | High | 8 | Granular user consent recording with clear opt-in and withdrawal mechanisms. |
+| **PRIV-03** | Right to Erasure & Deletion | Critical | 10 | Automated erasure mechanisms for customer and user records upon verified request. |
+| **PRIV-04** | Retention & Automated Purge | High | 8 | Defined lifecycle retention periods with automated data deletion and purging. |
+| **PRIV-05** | Anonymization & Data Masking | High | 8 | Sanitized and masked PII in logs, crash reports, analytics, and non-production environments. |
+| **PRIV-06** | Geographic Data Residency | High | 8 | Storage and processing restricted to authorized geographical jurisdictions. |
+
+---
+
+## 4. Verification Checklist
+- [ ] PII data elements documented in data catalog
+- [ ] Automated user deletion workflow verified
+- [ ] Application logs free of raw passwords, credit cards, or personal identifiers
+- [ ] Database retention policies active and automated
+`;
+
+    const initialComplianceMarkdown = `# Regulatory Compliance & Audit Baseline
+
+## 1. Overview
+Defines regulatory governance, non-repudiation, and audit readiness controls across corporate and customer-facing digital applications.
+
+## 2. Applicability
+Mandatory for all enterprise applications subject to internal audit, ISO 27001, SOC 2, or regulatory oversight.
+
+## 3. Mandatory Compliance Controls
+
+| Control Identifier | Control Name | Severity | Default Weight | Description |
+|---|---|---|---|---|
+| **COMP-01** | Immutable Audit Trail | Critical | 10 | Non-repudiable audit logs recording all data mutations and admin actions with tamper-evidence. |
+| **COMP-02** | Change Control & Peer Review | High | 8 | Mandatory peer reviews, automated CI verification, and dual approval for production deployments. |
+| **COMP-03** | Disaster Recovery & Backup Validation | High | 8 | Documented RTO/RPO targets with automated regular recovery and restoration tests. |
+| **COMP-04** | Vendor & Third-Party Risk Review | Medium | 6 | Formal security and compliance evaluation of third-party SaaS and integrations. |
+| **COMP-05** | Access Recertification | High | 8 | Periodic access reviews and automated revocation of inactive accounts. |
+
+---
+
+## 4. Verification Checklist
+- [ ] Audit logs write-only or shipped to tamper-resistant log aggregator
+- [ ] Production deployments locked behind pull request approvals and CI gates
+- [ ] Automated database backup snapshots running with documented recovery test schedule
+`;
+
+    const initialLegalMarkdown = `# Software Licensing & Legal Compliance Baseline
+
+## 1. Overview
+Ensures all software assets respect open-source licenses, avoid incompatible copyleft obligations, and preserve organizational intellectual property rights.
+
+## 2. Applicability
+Applies to all source code repositories, third-party libraries, container images, and software artifacts distributed or operated by the organization.
+
+## 3. Mandatory Legal Controls
+
+| Control Identifier | Control Name | Severity | Default Weight | Description |
+|---|---|---|---|---|
+| **LEG-01** | Open Source License Compliance | Critical | 10 | Automated license scanning ensuring no unapproved restrictive or viral copyleft licenses (e.g. AGPL). |
+| **LEG-02** | Third-Party Attribution & Notices | Medium | 6 | Comprehensive inventory of third-party software with compliant copyright notices and attribution. |
+| **LEG-03** | Terms of Service & Privacy Synchronization | High | 8 | Accurate and up-to-date legal terms and privacy policies presented and version-tracked in UI. |
+| **LEG-04** | Intellectual Property & Trade Secret Protection | Critical | 10 | Protection of proprietary source code, algorithms, and confidential assets against leakage. |
+
+---
+
+## 4. Verification Checklist
+- [ ] Dependency license scanner (e.g. license-checker) active in CI pipeline
+- [ ] No unapproved copyleft dependencies in proprietary applications
+- [ ] Third-party attribution file packaged with distributions
+`;
+
+    const initialQualityMarkdown = `# Software Quality & Testing Baseline
+
+## 1. Overview
+Establishes engineering rigor, test automation, continuous code inspection, and operational performance standards across applications.
+
+## 2. Applicability
+Applies to all software engineering codebases maintained or developed by the organization.
+
+## 3. Mandatory Quality Controls
+
+| Control Identifier | Control Name | Severity | Default Weight | Description |
+|---|---|---|---|---|
+| **QAL-01** | Automated Test Coverage | High | 8 | Comprehensive automated unit and integration tests executed in CI before merging. |
+| **QAL-02** | Static Analysis & Code Linting | Medium | 6 | Automated linting, type checks, and static analysis without unreviewed bypasses. |
+| **QAL-03** | Deterministic CI/CD Pipelines | High | 8 | Reproducible, containerized automated build and test pipelines with fast feedback loops. |
+| **QAL-04** | Real-time Error Monitoring | High | 8 | Automated exception tracking, error budgets, and alerting for production defects. |
+| **QAL-05** | Performance & Response Time SLOs | Medium | 6 | Documented and tested performance criteria, latency SLOs, and resource constraints. |
+
+---
+
+## 4. Verification Checklist
+- [ ] Automated test suite runs on every pull request
+- [ ] Linter and TypeScript compiler pass with zero errors
+- [ ] Error tracker (Sentry / Pixxel247) configured for uncaught exceptions
+- [ ] API latency conforms to defined service level objectives (p95 < 500ms)
+`;
+
+    const additionalStandards = [
+      { id: 'std-architecture-core', category: 'Architecture', title: 'System Architecture & Resilience Baseline', slug: 'architecture', description: 'Core architecture guidelines covering modularity, stateless tiers, API versioning, and caching', content: initialArchitectureMarkdown, itemCount: 6 },
+      { id: 'std-privacy-core', category: 'Privacy', title: 'Data Privacy & Protection Baseline', slug: 'privacy', description: 'Data privacy and protection controls covering consent, PII minimization, retention, and erasure', content: initialPrivacyMarkdown, itemCount: 6 },
+      { id: 'std-compliance-core', category: 'Compliance', title: 'Regulatory Compliance & Audit Baseline', slug: 'compliance', description: 'Governance and compliance controls covering audit logging, change management, and disaster recovery', content: initialComplianceMarkdown, itemCount: 5 },
+      { id: 'std-legal-core', category: 'Legal', title: 'Software Licensing & Legal Compliance Baseline', slug: 'legal', description: 'Legal compliance controls covering open-source license attribution, copyleft avoidance, and IP protection', content: initialLegalMarkdown, itemCount: 4 },
+      { id: 'std-quality-core', category: 'Quality', title: 'Software Quality & Testing Baseline', slug: 'quality', description: 'Quality engineering controls covering automated unit/integration tests, linting, error budgeting, and performance SLOs', content: initialQualityMarkdown, itemCount: 5 },
+    ];
+
+    for (const std of additionalStandards) {
+      await prisma.$executeRaw`
+        INSERT IGNORE INTO \`standards\` (\`id\`, \`category\`, \`title\`, \`slug\`, \`description\`, \`content\`, \`source\`, \`item_count\`, \`created_at\`, \`updated_at\`)
+        VALUES (${std.id}, ${std.category}, ${std.title}, ${std.slug}, ${std.description}, ${std.content}, 'pixxelai', ${std.itemCount}, NOW(), NOW())
+      `;
+    }
+
+    try {
+      await prisma.$executeRawUnsafe(`UPDATE \`standards\` SET created_at = NOW(), updated_at = NOW() WHERE updated_at IS NULL OR CAST(updated_at AS CHAR) LIKE '0000%'`);
+    } catch {}
 
     // Seed default role permissions
     for (const [role, keys] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {

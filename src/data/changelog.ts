@@ -9,6 +9,7 @@
  * Format: { date: "YYYY-MM-DD", description: "Short description of the change" }
  */
 export const CHANGELOG: { date: string; description: string }[] = [
+  { date: "2026-10-22", description: "Added Standards Feature Flags subset — dedicated Standards & Governance section in Feature Flags with individual toggle controls for Privacy, Legal, Compliance, Security, Architecture, and Quality; dynamic standards filtering in reviews, catalog, and workflow assignment" },
   { date: "2026-10-21", description: "Added Workflow Configuration and 'My Tasks' Workspace — map standards to specialist reviewer roles (Security, Architecture, Developer), auto-generate review tasks from assessment scans, status actions (Approve, Reject, Seek Clarification, Assign to Developer), and targeted single-control Re-checks with real-time score updates" },
   { date: "2026-10-20", description: "Added Application Review Engine and Assessments Center — independent Review button in application directory, isolated git repo clone and context extraction, async Security Baseline evaluation via active LLM, animated live progress bar in top navigation bar, and comprehensive Assessments report view with controls breakdown and evidence" },
   { date: "2026-10-20", description: "Added LLM Providers Integration in Settings — configure Ollama (local LLM), Antigravity (Google Gemini), Codex (OpenAI), and Claude (Anthropic) with API key masking, real-time connectivity testing with latency measurement, and primary review engine selection" },

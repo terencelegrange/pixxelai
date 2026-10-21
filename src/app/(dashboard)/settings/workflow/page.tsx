@@ -29,6 +29,7 @@ export default function WorkflowConfigPage() {
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [standards, setStandards] = useState<StandardMeta[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
@@ -36,12 +37,27 @@ export default function WorkflowConfigPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const res = await fetch("/api/settings/workflow");
+      const [res, flagsRes] = await Promise.all([
+        fetch("/api/settings/workflow"),
+        fetch("/api/feature-flags"),
+      ]);
+
+      if (flagsRes.ok) {
+        const flagsData = await flagsRes.json();
+        const flagMap: Record<string, boolean> = {};
+        for (const [k, v] of Object.entries<any>(flagsData)) {
+          flagMap[k] = v.enabled;
+        }
+        setFlags(flagMap);
+      }
+
       if (res.ok) {
         const data = await res.json();
         setRoles(data.available_roles || []);
         setStandards(data.standards || []);
-        setCategories(data.categories || ["Security", "Architecture", "Privacy", "Compliance"]);
+        const defaultCats = ["Security", "Architecture", "Privacy", "Compliance", "Legal", "Quality"];
+        const resolvedCats = data.categories || defaultCats;
+        setCategories(resolvedCats);
 
         // Build list of config items for every category
         const existingMap = new Map<string, WorkflowItem>();
@@ -49,19 +65,25 @@ export default function WorkflowConfigPage() {
           existingMap.set(c.category, c);
         });
 
-        const merged: WorkflowItem[] = (data.categories || ["Security", "Architecture", "Privacy", "Compliance"]).map(
-          (cat: string) => {
-            return (
-              existingMap.get(cat) || {
-                id: `wf-${cat.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
-                category: cat,
-                standard_id: null,
-                assigned_role: cat.toLowerCase() === "architecture" ? "architecture" : "security",
-                auto_create_tasks: 1,
-              }
-            );
-          }
-        );
+        const merged: WorkflowItem[] = resolvedCats.map((cat: string) => {
+          const norm = cat.toLowerCase();
+          const defaultRole =
+            norm === "architecture"
+              ? "architecture"
+              : norm === "quality"
+              ? "developer"
+              : "security";
+
+          return (
+            existingMap.get(cat) || {
+              id: `wf-${norm.replace(/[^a-z0-9]/g, "-")}`,
+              category: cat,
+              standard_id: null,
+              assigned_role: defaultRole,
+              auto_create_tasks: 1,
+            }
+          );
+        });
 
         setConfigs(merged);
       }
@@ -204,9 +226,13 @@ export default function WorkflowConfigPage() {
                       <span className="text-base font-bold text-gray-900 dark:text-white">
                         {item.category} Standards
                       </span>
-                      {item.category.toLowerCase() === "security" && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300">
-                          Active Baseline
+                      {flags[`standards_${item.category.toLowerCase()}`] === false ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40">
+                          Disabled in Flags
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                          Active
                         </span>
                       )}
                     </div>

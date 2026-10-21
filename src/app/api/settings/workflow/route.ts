@@ -25,7 +25,7 @@ export async function GET() {
     // Ensure baseline categories exist in workflow_configs
     const existingCategories = new Set(configs.map((c) => c.category));
     const allCategories = Array.from(
-      new Set(["Security", "Architecture", "Privacy", "Compliance", ...categories.map((c) => c.category)])
+      new Set(["Security", "Architecture", "Privacy", "Compliance", "Legal", "Quality", ...categories.map((c) => c.category)])
     );
 
     return NextResponse.json({
