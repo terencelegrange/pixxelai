@@ -72,7 +72,8 @@ EOF
                             cd ${DEPLOY_DIR}
                             docker network prune -f || true
                             docker compose build
-                            docker compose up -d
+                            docker compose down --remove-orphans || true
+                            docker compose up -d --force-recreate
                         "
                     """
                 }
