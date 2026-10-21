@@ -2,31 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { ROLES } from "@/data/nav";
+import { getEnabledStandards } from "@/lib/flags";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const includeDisabled = req.nextUrl.searchParams.get("includeDisabled") === "true";
+  const enabledCategories = await getEnabledStandards();
 
   try {
     const [configs, standards, categories] = await Promise.all([
       prisma.workflowConfig.findMany({
+        where: !includeDisabled ? { category: { in: enabledCategories } } : {},
         orderBy: { category: "asc" },
       }),
       prisma.standard.findMany({
+        where: !includeDisabled ? { category: { in: enabledCategories } } : {},
         select: { id: true, title: true, category: true, slug: true },
         orderBy: { title: "asc" },
       }),
       prisma.standard.findMany({
+        where: !includeDisabled ? { category: { in: enabledCategories } } : {},
         select: { category: true },
         distinct: ["category"],
       }),
     ]);
 
-    // Ensure baseline categories exist in workflow_configs
-    const existingCategories = new Set(configs.map((c) => c.category));
-    const allCategories = Array.from(
-      new Set(["Security", "Architecture", "Privacy", "Compliance", "Legal", "Quality", ...categories.map((c) => c.category)])
-    );
+    const allCategories = includeDisabled
+      ? Array.from(
+          new Set(["Security", "Architecture", "Privacy", "Compliance", "Legal", "Quality", ...categories.map((c) => c.category)])
+        )
+      : enabledCategories;
 
     return NextResponse.json({
       configs,

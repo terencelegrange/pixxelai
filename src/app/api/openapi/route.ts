@@ -889,6 +889,21 @@ const spec = {
       },
     },
 
+    // ── Reporting & Telemetry ───────────────────────────────────────────
+    "/reports/compliance": {
+      get: {
+        tags: ["Reporting"],
+        summary: "Get application compliance status and historical trend",
+        description: "Returns current compliance KPIs, time-stamped assessment historical time-series points heading towards 100%, governance areas breakdown, and latest audited controls.",
+        parameters: [
+          { name: "appId", in: "query", required: false, schema: { type: "string" }, description: "Application ID (defaults to most recently assessed app)" },
+        ],
+        responses: {
+          200: { description: "Compliance report object" },
+        },
+      },
+    },
+
     // ── OpenAPI ─────────────────────────────────────────────────────────
     "/openapi": {
       get: {

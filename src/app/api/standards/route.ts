@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { auditLog, getIp } from "@/lib/audit";
+import { getEnabledStandards } from "@/lib/flags";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -9,8 +10,15 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category");
+  const includeDisabled = searchParams.get("includeDisabled") === "true";
+
+  const enabledStandards = await getEnabledStandards();
 
   const where: any = {};
+  if (!includeDisabled) {
+    where.category = { in: enabledStandards };
+  }
+
   if (category && category !== "all") {
     where.category = category;
   }
@@ -21,6 +29,7 @@ export async function GET(req: NextRequest) {
   });
 
   const categories = await prisma.standard.findMany({
+    where: !includeDisabled ? { category: { in: enabledStandards } } : {},
     select: { category: true },
     distinct: ["category"],
   });
@@ -28,6 +37,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     standards,
     categories: Array.from(new Set(categories.map((c) => c.category))).filter(Boolean),
+    enabled_categories: enabledStandards,
   });
 }
 

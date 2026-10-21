@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { auditLog, getIp } from "@/lib/audit";
+import { isStandardEnabled } from "@/lib/flags";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -16,6 +17,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (!standard) {
     return NextResponse.json({ error: "Standard not found" }, { status: 404 });
+  }
+
+  const includeDisabled = req.nextUrl.searchParams.get("includeDisabled") === "true";
+  const enabled = await isStandardEnabled(standard.category);
+  if (!enabled && !includeDisabled) {
+    return NextResponse.json({ error: "Standard not found or disabled" }, { status: 404 });
   }
 
   return NextResponse.json({ standard });

@@ -216,32 +216,28 @@ export default function WorkflowConfigPage() {
           </div>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-slate-800">
-            {configs.map((item) => {
-              const matchedStandards = standards.filter((s) => s.category.toLowerCase() === item.category.toLowerCase());
+            {configs
+              .filter((item) => flags[`standards_${item.category.toLowerCase()}`] !== false)
+              .map((item) => {
+                const matchedStandards = standards.filter((s) => s.category.toLowerCase() === item.category.toLowerCase());
 
-              return (
-                <div key={item.category} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-gray-50/50 dark:hover:bg-slate-800/20 transition">
-                  <div className="space-y-1 md:max-w-md">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-bold text-gray-900 dark:text-white">
-                        {item.category} Standards
-                      </span>
-                      {flags[`standards_${item.category.toLowerCase()}`] === false ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40">
-                          Disabled in Flags
+                return (
+                  <div key={item.category} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-gray-50/50 dark:hover:bg-slate-800/20 transition">
+                    <div className="space-y-1 md:max-w-md">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-bold text-gray-900 dark:text-white">
+                          {item.category} Standards
                         </span>
-                      ) : (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
                           Active
                         </span>
-                      )}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-slate-400">
+                        {matchedStandards.length > 0
+                          ? `Includes: ${matchedStandards.map((s) => s.title).join(", ")}`
+                          : "Baseline standards in this category will be routed according to this rule."}
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-slate-400">
-                      {matchedStandards.length > 0
-                        ? `Includes: ${matchedStandards.map((s) => s.title).join(", ")}`
-                        : "Baseline standards in this category will be routed according to this rule."}
-                    </p>
-                  </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     {/* Auto Create Tasks Toggle */}
