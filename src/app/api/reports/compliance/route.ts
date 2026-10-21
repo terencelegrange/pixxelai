@@ -183,28 +183,59 @@ export async function GET(req: NextRequest) {
       completed_at: a.completed_at,
     }));
 
-    // Enrich applications list with latest score & assessment count
-    const appSummaries = await Promise.all(
-      apps.map(async (app) => {
-        const count = await prisma.assessment.count({
-          where: { application_id: app.id },
-        });
-        const latest = await prisma.assessment.findFirst({
-          where: { application_id: app.id, status: "completed", compliance_score: { not: null } },
-          orderBy: { completed_at: "desc" },
-          select: { compliance_score: true, completed_at: true },
-        });
+    // Pre-fetch all completed assessments grouped by app and category
+    const allCompletedAssessments = await prisma.assessment.findMany({
+      where: { status: "completed", compliance_score: { not: null } },
+      orderBy: { completed_at: "desc" },
+      select: {
+        application_id: true,
+        category: true,
+        compliance_score: true,
+        meets_count: true,
+        items_count: true,
+        completed_at: true,
+      },
+    });
 
+    const appLatestMap = new Map<string, Map<string, any>>();
+    for (const a of allCompletedAssessments) {
+      if (!appLatestMap.has(a.application_id)) {
+        appLatestMap.set(a.application_id, new Map());
+      }
+      const catMap = appLatestMap.get(a.application_id)!;
+      const catKey = a.category.toLowerCase();
+      if (!catMap.has(catKey)) {
+        catMap.set(catKey, a);
+      }
+    }
+
+    // Enrich applications list with latest score, assessment count, and areas ring data
+    const appSummaries = apps.map((app) => {
+      const appAssessments = allCompletedAssessments.filter((a) => a.application_id === app.id);
+      const latestOverall = appAssessments[0] || null;
+      const catMap = appLatestMap.get(app.id);
+
+      const appAreas = enabledCategories.map((cat) => {
+        const record = catMap?.get(cat.toLowerCase());
         return {
-          id: app.id,
-          name: app.name,
-          short_code: app.short_code,
-          assessments_count: count,
-          latest_score: latest?.compliance_score ?? null,
-          last_assessed_at: latest?.completed_at ?? null,
+          category: cat,
+          score: record ? Math.round(record.compliance_score ?? 0) : null,
+          meets_count: record?.meets_count ?? 0,
+          controls_count: record?.items_count ?? 0,
+          last_assessed_at: record?.completed_at || null,
         };
-      })
-    );
+      });
+
+      return {
+        id: app.id,
+        name: app.name,
+        short_code: app.short_code,
+        assessments_count: appAssessments.length,
+        latest_score: latestOverall ? Math.round(latestOverall.compliance_score ?? 0) : null,
+        last_assessed_at: latestOverall?.completed_at ?? null,
+        areas: appAreas,
+      };
+    });
 
     return NextResponse.json({
       applications: appSummaries,
