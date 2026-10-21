@@ -70,8 +70,8 @@ export function parseUserAgent(ua: string | null): ParsedUserAgent {
 
   let os = "Unknown OS";
   if (/windows/i.test(ua)) os = "Windows";
-  else if (/macintosh|mac os x/i.test(ua)) os = "macOS";
   else if (/iphone|ipad|ipod/i.test(ua)) os = "iOS";
+  else if (/macintosh|mac os x/i.test(ua)) os = "macOS";
   else if (/android/i.test(ua)) os = "Android";
   else if (/linux/i.test(ua)) os = "Linux";
 

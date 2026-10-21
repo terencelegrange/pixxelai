@@ -131,7 +131,15 @@ export default function StandardsRingChart({
     <div className={`flex flex-col md:flex-row items-center justify-between gap-6 ${className}`}>
       {/* Concentric Rings SVG Canvas */}
       <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: size, height: size }}>
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible select-none">
+        <svg
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          className="overflow-visible select-none"
+          role="img"
+          aria-label={centerLabel ? `${centerLabel} compliance ring chart` : "Standards compliance rings showing category closure progress towards 100%"}
+        >
+          <title>{centerLabel || "Standards Compliance Rings"}</title>
           {rings.map((ring, idx) => (
             <g key={ring.category}>
               {/* Full Background Track Ring (faint, showing total circle) */}
@@ -279,7 +287,14 @@ export default function StandardsRingChart({
 
                 {/* Right: Ring Closure Progress Bar */}
                 <div className="w-24 sm:w-28 flex-shrink-0 text-right space-y-1">
-                  <div className="h-2 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-2 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={hasData ? scoreVal : 0}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${ring.category} compliance: ${hasData ? scoreVal : 0}%`}
+                  >
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{

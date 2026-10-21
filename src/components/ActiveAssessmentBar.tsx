@@ -96,6 +96,8 @@ export default function ActiveAssessmentBar() {
         className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/10 via-cyan-500/15 to-emerald-500/10 border border-cyan-500/30 hover:border-cyan-500/60 shadow-sm text-xs font-medium text-gray-800 dark:text-slate-200 transition group focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
         title="Assessment currently running. Click to view details."
         aria-label="Active assessment in progress"
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
       >
         {/* Spinning Progress Indicator */}
         <span className="relative flex items-center justify-center w-4 h-4">
@@ -148,7 +150,11 @@ export default function ActiveAssessmentBar() {
 
       {/* Popover / Dropdown Dialog */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 shadow-xl z-50 p-4 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          role="dialog"
+          aria-label="Active assessment progress details"
+          className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 shadow-xl z-50 p-4 animate-in fade-in zoom-in-95 duration-150"
+        >
           <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5">
