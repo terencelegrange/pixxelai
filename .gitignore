@@ -42,4 +42,13 @@ site.config.json
 *.tsbuildinfo
 next-env.d.ts
 
+# prisma generated clients
+src/generated/
+
+# SQLite trial-mode database files
+data/
+
+# Auto-generated JWT signing secret
+.jwt-secret
+
 certificates

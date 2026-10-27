@@ -2,14 +2,17 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies, headers } from "next/headers";
 import { createHash, randomBytes } from "crypto";
 
+import { getOrCreateJwtSecret } from "./jwt-secret";
+
 const DEVICE_TOKEN_TTL_DAYS = 30;
 
 export const COOKIE = "bp_token";
 export const THEME_COOKIE = "bp_theme";
 
-const secret = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "fallback-secret-change-me"
-);
+export function getJwtSecretBytes(): Uint8Array {
+  const s = process.env.JWT_SECRET || getOrCreateJwtSecret();
+  return new TextEncoder().encode(s);
+}
 
 export interface JwtPayload {
   sub: string;
@@ -22,12 +25,12 @@ export async function signToken(payload: JwtPayload): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
-    .sign(secret);
+    .sign(getJwtSecretBytes());
 }
 
 export async function verifyToken(token: string): Promise<JwtPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, getJwtSecretBytes());
     return payload as unknown as JwtPayload;
   } catch {
     return null;

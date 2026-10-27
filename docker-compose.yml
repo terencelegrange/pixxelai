@@ -8,7 +8,9 @@ services:
     restart: unless-stopped
     network_mode: bridge
     ports:
-      - "7008:3334"
+      - "7008:3000"
+    volumes:
+      - pixxelai_data:/app/data
     env_file:
       # Deliberately not named .env -- Docker Compose auto-loads any file
       # literally named .env in the project dir for its own $VAR/${VAR}
@@ -17,3 +19,6 @@ services:
       # bcrypt hashes. A non-.env filename gets loaded as plain key=value
       # pairs with no interpolation at all.
       - pixxelai.env
+
+volumes:
+  pixxelai_data:

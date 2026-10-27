@@ -7,7 +7,9 @@
     "prebuild": "npm run db:generate",
     "build": "next build",
     "start": "next start -p 3334",
-    "db:generate": "prisma generate",
+    "db:generate:mysql": "prisma generate --schema=prisma/schema.prisma",
+    "db:generate:sqlite": "prisma generate --schema=prisma/schema.sqlite.prisma",
+    "db:generate": "npm run db:generate:mysql && npm run db:generate:sqlite",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

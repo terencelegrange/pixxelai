@@ -1,0 +1,372 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client-sqlite"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  Int                 @id @default(autoincrement())
+  email               String              @unique
+  password_hash       String
+  name                String?
+  role                String              @default("user")
+  status              String              @default("pending")
+  theme               String              @default("dark")
+  avatar              Int?
+  created_at          DateTime            @default(now())
+  updated_at          DateTime            @updatedAt
+  audit_logs          AuditLog[]
+  user_mfa            UserMfa?
+  passkey_credentials PasskeyCredential[]
+  api_keys            ApiKey[]
+  device_tokens       DeviceToken[]
+  assigned_tasks      ReviewTask[]        @relation("UserAssignedTasks")
+  task_activities     TaskActivity[]      @relation("UserTaskActivities")
+
+  @@map("users")
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  user_id     Int?
+  user        User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  action      String
+  resource    String
+  resource_id String?
+  details     String?
+  ip          String?
+  created_at  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model FeatureFlag {
+  key         String   @id
+  enabled     Int      @default(1)
+  label       String
+  description String
+  category    String   @default("system")
+
+  @@map("feature_flags")
+}
+
+model Changelog {
+  id          Int      @id @default(autoincrement())
+  date        DateTime
+  description String
+  created_at  DateTime @default(now())
+
+  @@map("changelog")
+}
+
+model UserMfa {
+  user_id      Int      @id
+  secret       String
+  enabled      Int      @default(0)
+  backup_codes String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now()) @updatedAt
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("user_mfa")
+}
+
+model WatermarkConfig {
+  id          Int      @id @default(1)
+  enabled     Int      @default(0)
+  custom_text String   @default("{{email}} • CONFIDENTIAL")
+  show_qr     Int      @default(1)
+  opacity     Int      @default(7)
+  font_size   Int      @default(12)
+  updated_at  DateTime @default(now()) @updatedAt
+
+  @@map("watermark_config")
+}
+
+model RolePermission {
+  role    String
+  nav_key String
+
+  @@id([role, nav_key])
+  @@map("role_permissions")
+}
+
+model PasskeyCredential {
+  id          String    @id
+  user_id     Int
+  public_key  String
+  counter     BigInt    @default(0)
+  device_type String    @default("singleDevice")
+  backed_up   Int       @default(0)
+  transports  String?
+  name        String    @default("Passkey")
+  created_at  DateTime  @default(now())
+  last_used   DateTime?
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("passkey_credentials")
+}
+
+model PasskeyChallenge {
+  id         String   @id
+  challenge  String
+  user_id    Int?
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  @@map("passkey_challenges")
+}
+
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  key_hash   String
+  prefix     String    @unique
+  name       String
+  contact    String
+  expires_at DateTime?
+  created_by Int?
+  user       User?     @relation(fields: [created_by], references: [id], onDelete: SetNull)
+  created_at DateTime  @default(now())
+  last_used  DateTime?
+  active     Int       @default(1)
+
+  @@index([created_by])
+  @@map("api_keys")
+}
+
+model DeviceToken {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  token_hash String    @unique
+  created_at DateTime  @default(now())
+  last_used  DateTime?
+  expires_at DateTime
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("device_tokens")
+}
+
+model ObservabilityConfig {
+  type           String   @id
+  enabled        Int      @default(0)
+  endpoint       String
+  api_key        String?
+  site_id        String?
+  log_level      String?  @default("info")
+  custom_headers String?
+  updated_at     DateTime @default(now()) @updatedAt
+
+  @@map("observability_config")
+}
+
+model PixxelSyncConfig {
+  id                  Int       @id @default(autoincrement())
+  server_url          String    @default("http://192.168.100.228:3030")
+  api_key             String?
+  sync_source         String    @default("api")
+  last_sync_at        DateTime?
+  last_sync_status    String?
+  last_sync_message   String?
+  assets_synced_count Int       @default(0)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  @@map("pixxel_sync_config")
+}
+
+model Pixxel360SyncConfig {
+  id                    Int       @id @default(autoincrement())
+  server_url            String    @default("http://192.168.100.228:7002")
+  api_key               String?
+  sync_source           String    @default("database")
+  last_sync_at          DateTime?
+  last_sync_status      String?
+  last_sync_message     String?
+  controls_synced_count Int       @default(0)
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  @@map("pixxel360_sync_config")
+}
+
+model Application {
+  id                 String   @id
+  pixxel_asset_id    String?  @unique
+  name               String
+  short_code         String?
+  category           String   @default("Application")
+  type               String   @default("SaaS")
+  lifecycle_status   String   @default("Production")
+  description        String?
+  business_owner     String?
+  technical_owner    String?
+  vendor             String?
+  app_url            String?
+  doc_url            String?
+  repo_url           String?
+  knowledge_base_url String?
+  regulatory_sources String?
+  raw_sync_data      String?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  assessments        Assessment[]
+  review_tasks       ReviewTask[]
+
+  @@index([category])
+  @@index([lifecycle_status])
+  @@map("applications")
+}
+
+model Standard {
+  id          String   @id @default(cuid())
+  category    String   @default("Security")
+  title       String
+  slug        String   @unique
+  description String?
+  content     String
+  source      String   @default("pixxel360")
+  item_count  Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([category])
+  @@map("standards")
+}
+
+model LlmProviderConfig {
+  id               String    @id // "ollama", "antigravity", "codex", "claude"
+  name             String
+  enabled          Int       @default(0)
+  is_active        Int       @default(0) // 1 if primary default engine
+  base_url         String?
+  api_key          String?
+  default_model    String
+  available_models String?
+  temperature      Float     @default(0.2)
+  max_tokens       Int       @default(4096)
+  timeout_seconds  Int       @default(60)
+  last_test_at     DateTime?
+  last_test_status String?
+  last_test_msg    String?
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  @@map("llm_provider_configs")
+}
+
+model Assessment {
+  id               String           @id @default(cuid())
+  application_id   String
+  application      Application      @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  category         String           @default("Security")
+  status           String           @default("queued") // queued, cloning, analyzing, completed, failed
+  compliance_score Float?
+  summary          String?
+  items_count      Int              @default(0)
+  meets_count      Int              @default(0)
+  partial_count    Int              @default(0)
+  fails_count      Int              @default(0)
+  na_count         Int              @default(0)
+  llm_provider     String?
+  llm_model        String?
+  error_message    String?
+  started_at       DateTime?
+  completed_at     DateTime?
+  created_at       DateTime         @default(now())
+  updated_at       DateTime         @updatedAt
+  items            AssessmentItem[]
+  tasks            ReviewTask[]
+
+  @@index([application_id])
+  @@index([status])
+  @@index([category])
+  @@map("assessments")
+}
+
+model AssessmentItem {
+  id             String     @id @default(cuid())
+  assessment_id  String
+  assessment     Assessment @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  standard_id    String // e.g. SEC-01
+  title          String
+  category       String     @default("Security")
+  result         String // Meets, Partially Meets, Does Not Meet, Not Applicable
+  severity       String     @default("Medium") // Critical, High, Medium, Low, Info
+  evidence       String?
+  recommendation String?
+  created_at     DateTime   @default(now())
+  tasks          ReviewTask[]
+
+  @@index([assessment_id])
+  @@index([result])
+  @@map("assessment_items")
+}
+
+model WorkflowConfig {
+  id                String   @id @default(cuid())
+  standard_id       String?
+  category          String   @default("Security")
+  assigned_role     String   @default("security")
+  auto_create_tasks Int      @default(1)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  @@index([category])
+  @@index([standard_id])
+  @@map("workflow_configs")
+}
+
+model ReviewTask {
+  id                  String          @id @default(cuid())
+  application_id      String
+  assessment_id       String
+  assessment_item_id  String
+  standard_id         String // e.g. "SEC-03"
+  standard_title      String
+  category            String          @default("Security")
+  assigned_role       String          @default("security")
+  assigned_to_user_id Int?
+  status              String          @default("pending")
+  // "pending", "approved", "rejected", "clarification_needed", "assigned_to_developer"
+  severity            String          @default("Medium")
+  resolution_notes    String?
+  clarification_req   String?
+  last_recheck_at     DateTime?
+  recheck_count       Int             @default(0)
+  created_at          DateTime        @default(now())
+  updated_at          DateTime        @updatedAt
+
+  application         Application     @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  assessment          Assessment      @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  assessment_item     AssessmentItem  @relation(fields: [assessment_item_id], references: [id], onDelete: Cascade)
+  assigned_user       User?           @relation("UserAssignedTasks", fields: [assigned_to_user_id], references: [id], onDelete: SetNull)
+  activities          TaskActivity[]
+
+  @@index([assigned_role, status])
+  @@index([application_id])
+  @@map("review_tasks")
+}
+
+model TaskActivity {
+  id          String     @id @default(cuid())
+  task_id     String
+  user_id     Int?
+  action      String // "created", "status_change", "recheck_run", "comment"
+  from_status String?
+  to_status   String?
+  comment     String?
+  created_at  DateTime   @default(now())
+
+  task        ReviewTask @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  user        User?      @relation("UserTaskActivities", fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([task_id])
+  @@map("task_activities")
+}
+

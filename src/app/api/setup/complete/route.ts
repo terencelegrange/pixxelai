@@ -19,11 +19,37 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { db, appName, orgName, admin } = body;
 
-    if (!db?.host || !db?.user || !db?.name) {
-      return NextResponse.json(
-        { error: "Host, username, and database name are required." },
-        { status: 400 }
-      );
+    let dbConfig: DbConfig;
+    if (db?.dialect === "sqlite") {
+      const file = (db.file as string)?.trim() || "data/pixxelai.db";
+      const resolved = path.resolve(process.cwd(), file);
+      const cwd = process.cwd();
+      const outsideProject = resolved !== cwd && !resolved.startsWith(cwd + path.sep);
+      if (path.isAbsolute(file) || outsideProject) {
+        return NextResponse.json(
+          { error: "Database file path must be a relative path within the project directory." },
+          { status: 400 }
+        );
+      }
+      dbConfig = {
+        dialect: "sqlite",
+        file,
+      };
+    } else {
+      if (!db?.host || !db?.user || !db?.name) {
+        return NextResponse.json(
+          { error: "Host, username, and database name are required." },
+          { status: 400 }
+        );
+      }
+      dbConfig = {
+        dialect: "mysql",
+        host: db.host.trim(),
+        port: Number(db.port) || 3306,
+        user: db.user.trim(),
+        password: db.password ?? "",
+        name: db.name.trim(),
+      };
     }
 
     if (!admin?.email?.trim() || !admin?.password) {
@@ -40,16 +66,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const dbConfig: DbConfig = {
-      dialect: "mysql",
-      host: db.host.trim(),
-      port: Number(db.port) || 3306,
-      user: db.user.trim(),
-      password: db.password ?? "",
-      name: db.name.trim(),
-    };
-
-    const finalAppName = (appName || "Boilerplate").trim();
+    const finalAppName = (appName || "PixxelAI").trim();
     const finalOrgName = (orgName || "").trim();
 
     // 1. Write site.config.json in incomplete state so credentials can be read
@@ -61,12 +78,17 @@ export async function POST(req: Request) {
     });
 
     // 2. Write/update .env.local for persistence
-    const encodedUser = encodeURIComponent(dbConfig.user);
-    const encodedPass = encodeURIComponent(dbConfig.password);
-    const databaseUrl = `mysql://${encodedUser}:${encodedPass}@${dbConfig.host}:${dbConfig.port}/${dbConfig.name}`;
+    let envContent = "";
+    if (dbConfig.dialect === "sqlite") {
+      envContent = `DATABASE_URL="file:${dbConfig.file}"\nDB_TYPE=sqlite\nDB_FILE="${dbConfig.file}"\n`;
+    } else {
+      const encodedUser = encodeURIComponent(dbConfig.user);
+      const encodedPass = encodeURIComponent(dbConfig.password);
+      const databaseUrl = `mysql://${encodedUser}:${encodedPass}@${dbConfig.host}:${dbConfig.port}/${dbConfig.name}`;
+      envContent = `DATABASE_URL="${databaseUrl}"\nDB_TYPE=mysql\nDB_HOST="${dbConfig.host}"\nDB_PORT=${dbConfig.port}\nDB_USER="${dbConfig.user}"\nDB_PASSWORD="${dbConfig.password}"\nDB_NAME="${dbConfig.name}"\n`;
+    }
     
     const envLocalPath = path.join(process.cwd(), ".env.local");
-    const envContent = `DATABASE_URL="${databaseUrl}"\n`;
     fs.writeFileSync(envLocalPath, envContent, "utf-8");
 
     // 3. Reset and bootstrap Prisma DB

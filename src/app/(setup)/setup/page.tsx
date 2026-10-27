@@ -7,11 +7,13 @@ import { useRouter } from "next/navigation";
 // Types & Interfaces
 // ---------------------------------------------------------------------------
 interface DbForm {
+  dialect: "mysql" | "sqlite";
   host: string;
   port: string;
   user: string;
   password: string;
   name: string;
+  sqliteFile: string;
 }
 
 interface AdminForm {
@@ -175,12 +177,16 @@ function StepDatabase({
 
   function validate() {
     const e: typeof errors = {};
-    if (!form.host.trim()) e.host = "Host is required.";
-    if (!form.user.trim()) e.user = "Username is required.";
-    if (!form.name.trim()) e.name = "Database name is required.";
-    const port = Number(form.port);
-    if (form.port && (isNaN(port) || port < 1 || port > 65535)) {
-      e.port = "Port must be between 1 and 65535.";
+    if (form.dialect === "mysql") {
+      if (!form.host.trim()) e.host = "Host is required.";
+      if (!form.user.trim()) e.user = "Username is required.";
+      if (!form.name.trim()) e.name = "Database name is required.";
+      const port = Number(form.port);
+      if (form.port && (isNaN(port) || port < 1 || port > 65535)) {
+        e.port = "Port must be between 1 and 65535.";
+      }
+    } else {
+      if (!form.sqliteFile?.trim()) e.sqliteFile = "Database file path is required.";
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -195,11 +201,13 @@ function StepDatabase({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          dialect: form.dialect,
           host: form.host.trim(),
           port: Number(form.port) || 3306,
           user: form.user.trim(),
           password: form.password,
           name: form.name.trim(),
+          file: form.sqliteFile?.trim(),
         }),
       });
       const data = await res.json();
@@ -225,72 +233,112 @@ function StepDatabase({
       <div>
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">Database Configuration</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-          Enter your MySQL / MariaDB connection parameters. Click <strong>Test Connection</strong> to verify connectivity and create the database schema.
+          Choose between MySQL/MariaDB for production or SQLite for standalone trial mode. Click <strong>Test Connection</strong> to verify storage readiness.
         </p>
       </div>
 
-      <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-        <span>MySQL / MariaDB engine selected (default).</span>
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <button
+          type="button"
+          onClick={() => { onChange({ dialect: "mysql" }); setTestState("idle"); }}
+          className={`rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition-all ${
+            form.dialect === "mysql"
+              ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              : "border-gray-200 dark:border-slate-800 text-gray-600 dark:text-slate-400 hover:border-gray-300 dark:hover:border-slate-700"
+          }`}
+        >
+          <div className="font-bold text-gray-900 dark:text-white">MySQL / MariaDB</div>
+          <span className="mt-1 block text-xs font-normal text-gray-500 dark:text-slate-400">
+            External production database server.
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => { onChange({ dialect: "sqlite" }); setTestState("idle"); }}
+          className={`rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition-all ${
+            form.dialect === "sqlite"
+              ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              : "border-gray-200 dark:border-slate-800 text-gray-600 dark:text-slate-400 hover:border-gray-300 dark:hover:border-slate-700"
+          }`}
+        >
+          <div className="font-bold text-gray-900 dark:text-white">SQLite (Trial Mode)</div>
+          <span className="mt-1 block text-xs font-normal text-gray-500 dark:text-slate-400">
+            Single file, zero external database setup.
+          </span>
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="sm:col-span-2">
+      {form.dialect === "sqlite" ? (
+        <div className="space-y-4">
           <Field
-            label="Database Host"
-            id="db-host"
-            value={form.host}
-            onChange={(v) => { onChange({ host: v }); setTestState("idle"); }}
-            placeholder="127.0.0.1 or db.example.com"
-            error={errors.host}
+            label="Database File Path"
+            id="sqlite-file"
+            value={form.sqliteFile}
+            onChange={(v) => { onChange({ sqliteFile: v }); setTestState("idle"); }}
+            placeholder="data/pixxelai.db"
+            hint="Stored inside the container. Mount a volume at /app/data to persist across container restarts."
+            error={errors.sqliteFile}
           />
         </div>
-        <div>
-          <Field
-            label="Port"
-            id="db-port"
-            value={form.port}
-            onChange={(v) => { onChange({ port: v }); setTestState("idle"); }}
-            placeholder="3306"
-            error={errors.port}
-          />
-        </div>
-      </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <Field
+                label="Database Host"
+                id="db-host"
+                value={form.host}
+                onChange={(v) => { onChange({ host: v }); setTestState("idle"); }}
+                placeholder="127.0.0.1 or db.example.com"
+                error={errors.host}
+              />
+            </div>
+            <div>
+              <Field
+                label="Port"
+                id="db-port"
+                value={form.port}
+                onChange={(v) => { onChange({ port: v }); setTestState("idle"); }}
+                placeholder="3306"
+                error={errors.port}
+              />
+            </div>
+          </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field
-          label="Database User"
-          id="db-user"
-          value={form.user}
-          onChange={(v) => { onChange({ user: v }); setTestState("idle"); }}
-          placeholder="root"
-          error={errors.user}
-        />
-        <Field
-          label="Database Password"
-          id="db-password"
-          type={showPassword ? "text" : "password"}
-          value={form.password}
-          onChange={(v) => { onChange({ password: v }); setTestState("idle"); }}
-          placeholder="Password"
-          showToggle
-          onToggle={() => setShowPassword((s) => !s)}
-        />
-      </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Database User"
+              id="db-user"
+              value={form.user}
+              onChange={(v) => { onChange({ user: v }); setTestState("idle"); }}
+              placeholder="root"
+              error={errors.user}
+            />
+            <Field
+              label="Database Password"
+              id="db-password"
+              type={showPassword ? "text" : "password"}
+              value={form.password}
+              onChange={(v) => { onChange({ password: v }); setTestState("idle"); }}
+              placeholder="Password"
+              showToggle
+              onToggle={() => setShowPassword((s) => !s)}
+            />
+          </div>
 
-      <div>
-        <Field
-          label="Database Name"
-          id="db-name"
-          value={form.name}
-          onChange={(v) => { onChange({ name: v }); setTestState("idle"); }}
-          placeholder="boilerplate"
-          hint="Will be created if it does not already exist."
-          error={errors.name}
-        />
-      </div>
+          <div>
+            <Field
+              label="Database Name"
+              id="db-name"
+              value={form.name}
+              onChange={(v) => { onChange({ name: v }); setTestState("idle"); }}
+              placeholder="pixxelai"
+              hint="Will be created if it does not already exist."
+              error={errors.name}
+            />
+          </div>
+        </>
+      )}
 
       {testState === "ok" && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
@@ -543,19 +591,22 @@ function StepReview({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          db: {
-            host: db.host.trim(),
-            port: Number(db.port) || 3306,
-            user: db.user.trim(),
-            password: db.password,
-            name: db.name.trim(),
-          },
+          db: db.dialect === "sqlite"
+            ? { dialect: "sqlite", file: db.sqliteFile.trim() }
+            : {
+                dialect: "mysql",
+                host: db.host.trim(),
+                port: Number(db.port) || 3306,
+                user: db.user.trim(),
+                password: db.password,
+                name: db.name.trim(),
+              },
           admin: {
             name: admin.name.trim(),
             email: admin.email.trim(),
             password: admin.password,
           },
-          appName: app.appName.trim() || "Boilerplate",
+          appName: app.appName.trim() || "PixxelAI",
           orgName: app.orgName.trim(),
         }),
       });
@@ -595,10 +646,16 @@ function StepReview({
         <div className="rounded-xl border border-gray-200 dark:border-slate-800 p-4 bg-gray-50 dark:bg-slate-950/50">
           <p className="text-xs font-bold uppercase tracking-wider text-emerald-500 mb-2">Database</p>
           <div className="divide-y divide-gray-200 dark:divide-slate-800/80">
-            <Row label="Type" value="MySQL / MariaDB" />
-            <Row label="Host & Port" value={`${db.host}:${db.port || 3306}`} />
-            <Row label="Username" value={db.user} />
-            <Row label="Database Name" value={db.name} />
+            <Row label="Engine" value={db.dialect === "sqlite" ? "SQLite (Trial Mode)" : "MySQL / MariaDB"} />
+            {db.dialect === "sqlite" ? (
+              <Row label="Database File" value={db.sqliteFile || "data/pixxelai.db"} />
+            ) : (
+              <>
+                <Row label="Host & Port" value={`${db.host}:${db.port || 3306}`} />
+                <Row label="Username" value={db.user} />
+                <Row label="Database Name" value={db.name} />
+              </>
+            )}
           </div>
         </div>
 
@@ -616,7 +673,7 @@ function StepReview({
         <div className="rounded-xl border border-gray-200 dark:border-slate-800 p-4 bg-gray-50 dark:bg-slate-950/50">
           <p className="text-xs font-bold uppercase tracking-wider text-emerald-500 mb-2">Application</p>
           <div className="divide-y divide-gray-200 dark:divide-slate-800/80">
-            <Row label="App Name" value={app.appName || "Boilerplate"} />
+            <Row label="App Name" value={app.appName || "PixxelAI"} />
             {app.orgName && <Row label="Organisation" value={app.orgName} />}
           </div>
         </div>
@@ -665,11 +722,13 @@ export default function SetupWizardPage() {
   const [step, setStep] = useState<Step>(1);
 
   const [db, setDb] = useState<DbForm>({
+    dialect: "mysql",
     host: "127.0.0.1",
     port: "3306",
     user: "root",
     password: "",
-    name: "boilerplate",
+    name: "pixxelai",
+    sqliteFile: "data/pixxelai.db",
   });
 
   const [admin, setAdmin] = useState<AdminForm>({
@@ -680,7 +739,7 @@ export default function SetupWizardPage() {
   });
 
   const [app, setApp] = useState<AppForm>({
-    appName: "Boilerplate",
+    appName: "PixxelAI",
     orgName: "",
   });
 
