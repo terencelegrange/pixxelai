@@ -1,0 +1,25 @@
+.git
+.gitignore
+.next
+node_modules
+npm-debug.log*
+
+# Local environment and configuration files — MUST NEVER be baked into container images
+.env
+.env*
+.jwt-secret
+site.config.json
+site.config.json*
+data/
+certificates/
+
+# Dev / tests / docs
+*.md
+!CLAUDE.md
+src/test/
+scripts/
+tsconfig.tsbuildinfo
+
+# OS artifacts
+.DS_Store
+Thumbs.db

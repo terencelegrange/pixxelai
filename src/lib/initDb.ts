@@ -486,12 +486,7 @@ Applications must be evaluated based on their operational exposure and data sens
 - [ ] All network endpoints enforce TLS 1.3/1.2 with HSTS
 `;
 
-    await prisma.$executeRaw`
-      INSERT IGNORE INTO \`standards\` (\`id\`, \`category\`, \`title\`, \`slug\`, \`description\`, \`content\`, \`source\`, \`item_count\`)
-      VALUES ('std-security-core', 'Security', 'Application Security Baseline', 'security', 'Core baseline security controls and requirements for organizational applications', ${initialSecurityMarkdown}, 'pixxel360', 8)
-    `;
-
-    const initialArchitectureMarkdown = `# System Architecture & Resilience Baseline
+const initialArchitectureMarkdown = `# System Architecture & Resilience Baseline
 
 ## 1. Overview
 Defines fundamental software architecture requirements for organizational applications, emphasizing modularity, stateless horizontal scalability, robust API contracts, and graceful fault tolerance.

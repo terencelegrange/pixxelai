@@ -29,14 +29,19 @@ export default function LoginPage() {
   const [pendingUser, setPendingUser] = useState<any | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const [useBackupCode, setUseBackupCode] = useState(false);
+  const [checkingSetup, setCheckingSetup] = useState(true);
 
   useEffect(() => {
     fetch("/api/setup/status")
       .then((r) => r.json())
       .then(({ complete }) => {
-        if (!complete) router.replace("/setup");
+        if (!complete) {
+          router.replace("/setup");
+        } else {
+          setCheckingSetup(false);
+        }
       })
-      .catch(() => {});
+      .catch(() => setCheckingSetup(false));
 
     fetch("/api/auth/passkeys/config")
       .then((r) => r.json())
@@ -262,6 +267,14 @@ export default function LoginPage() {
     setSilentLogin(false);
     setError("");
     setView(profiles.length > 0 ? "profiles" : "form");
+  }
+
+  if (checkingSetup) {
+    return (
+      <div className="min-h-full flex items-center justify-center px-4 bg-gray-50 dark:bg-slate-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />
+      </div>
+    );
   }
 
   return (

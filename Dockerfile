@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- deps ----
-FROM node:22-alpine AS deps
-RUN apk add --no-cache libc6-compat
+FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 ARG NPM_REGISTRY=https://registry.npmjs.org/
 COPY package.json package-lock.json ./
@@ -10,21 +9,24 @@ RUN npm ci --registry=${NPM_REGISTRY} --fetch-timeout=600000 --fetch-retries=8 -
 RUN chmod -R +x node_modules/.bin
 
 # ---- builder ----
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 
-RUN apk add --no-cache openssl
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
 RUN chmod -R +x node_modules/.bin
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL="file:/tmp/build.db"
+ENV DB_TYPE=sqlite
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run db:generate
 RUN npm run build
 
 # ---- runner ----
-FROM node:22-alpine AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -32,10 +34,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-RUN apk add --no-cache openssl
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs \
+    && useradd --system --uid 1001 -g nodejs nextjs
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
@@ -44,7 +46,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/src/generated ./src/generated
-COPY --from=builder --chown=nextjs:nodejs /app/site.config.json* ./
 
 RUN chown nextjs:nodejs /app
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
