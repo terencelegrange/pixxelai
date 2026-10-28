@@ -30,11 +30,11 @@ export function getRPConfig(req: NextRequest) {
 
 export async function isPasskeysEnabled(): Promise<boolean> {
   try {
-    const rows = await prisma.$queryRaw<{ enabled: number }[]>`
-      SELECT enabled FROM feature_flags WHERE \`key\` = 'passkeys' LIMIT 1
-    `;
-    if (rows.length === 0) return false;
-    return rows[0].enabled === 1;
+    const flag = await (prisma as any).featureFlag.findUnique({
+      where: { key: "passkeys" },
+      select: { enabled: true },
+    });
+    return flag ? flag.enabled === 1 : false;
   } catch (e) {
     console.error("[isPasskeysEnabled] error:", e);
     return false;

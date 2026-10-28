@@ -13,23 +13,22 @@ export async function GET() {
 
   const userId = Number(session.sub);
 
-  const rows = await prisma.$queryRaw<{
-    id: number;
-    action: string;
-    resource: string;
-    resource_id: string | null;
-    details: string | null;
-    ip: string | null;
-    created_at: Date;
-  }[]>`
-    SELECT id, action, resource, resource_id, details, ip, created_at
-    FROM audit_logs
-    WHERE user_id = ${userId}
-    ORDER BY created_at DESC
-    LIMIT 50
-  `;
+  const rows = await (prisma as any).auditLog.findMany({
+    where: { user_id: userId },
+    orderBy: { created_at: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      action: true,
+      resource: true,
+      resource_id: true,
+      details: true,
+      ip: true,
+      created_at: true,
+    },
+  });
 
-  const logs = rows.map((r) => {
+  const logs = rows.map((r: any) => {
     let detailsObj: any = {};
     try {
       if (r.details) detailsObj = JSON.parse(r.details);

@@ -21,6 +21,12 @@ vi.mock("@/lib/initDb", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $executeRaw: vi.fn(),
+    featureFlag: {
+      upsert: vi.fn(),
+    },
+    watermarkConfig: {
+      upsert: vi.fn(),
+    },
   },
 }));
 
@@ -80,7 +86,8 @@ describe("Functional: Watermark Settings API Route (/api/settings/watermark)", (
 
   it("PATCH should update watermark config and log audit event when called by admin", async () => {
     (getSession as any).mockResolvedValue({ sub: "1", role: "admin" });
-    (prisma.$executeRaw as any).mockResolvedValue(1);
+    ((prisma as any).featureFlag.upsert as any).mockResolvedValue({});
+    ((prisma as any).watermarkConfig.upsert as any).mockResolvedValue({});
     (getWatermarkConfig as any).mockResolvedValue({ enabled: true, customText: "CONFIDENTIAL" });
 
     const req = new NextRequest("http://localhost:3000/api/settings/watermark", {
@@ -98,6 +105,6 @@ describe("Functional: Watermark Settings API Route (/api/settings/watermark)", (
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.ok).toBe(true);
-    expect(prisma.$executeRaw).toHaveBeenCalled();
+    expect((prisma as any).watermarkConfig.upsert).toHaveBeenCalled();
   });
 });

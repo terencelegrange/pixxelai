@@ -21,23 +21,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Email and token required" }, { status: 400 });
   }
 
-  const rows = await prisma.$queryRaw<DeviceLoginRow[]>`
-    SELECT dt.id AS device_id, u.id, u.email, u.role, u.status, u.theme, u.name, u.avatar
-    FROM device_tokens dt
-    JOIN users u ON u.id = dt.user_id
-    WHERE dt.token_hash = ${hashDeviceToken(token)} AND u.email = ${email} AND dt.expires_at > NOW()
-    LIMIT 1
-  `;
-  const user = rows[0] ?? null;
+  const now = new Date();
+  const tokenRecord = await (prisma as any).deviceToken.findFirst({
+    where: {
+      token_hash: hashDeviceToken(token),
+      expires_at: { gt: now },
+      user: { email },
+    },
+    include: {
+      user: true,
+    },
+  });
 
-  if (!user) {
+  if (!tokenRecord || !tokenRecord.user) {
     return NextResponse.json({ error: "This device is no longer trusted — please sign in with your password" }, { status: 401 });
   }
+  const user = tokenRecord.user;
   if (user.status !== "approved") {
     return NextResponse.json({ error: "Your account is not active" }, { status: 403 });
   }
 
-  await prisma.$executeRaw`UPDATE device_tokens SET last_used = NOW() WHERE id = ${user.device_id}`;
+  await (prisma as any).deviceToken.update({
+    where: { id: tokenRecord.id },
+    data: { last_used: new Date() },
+  }).catch(() => {});
 
   const jwt = await signToken({ sub: String(user.id), email: user.email, role: user.role, name: user.name });
   await auditLog({ userId: user.id, action: "LOGIN", resource: "sessions", details: { method: "trusted_device" }, ip: getIp(req) });
@@ -60,11 +67,19 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Email and token required" }, { status: 400 });
   }
 
-  await prisma.$executeRaw`
-    DELETE dt FROM device_tokens dt
-    JOIN users u ON u.id = dt.user_id
-    WHERE dt.token_hash = ${hashDeviceToken(token)} AND u.email = ${email}
-  `;
+  const user = await (prisma as any).user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (user) {
+    await (prisma as any).deviceToken.deleteMany({
+      where: {
+        user_id: user.id,
+        token_hash: hashDeviceToken(token),
+      },
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -11,16 +11,17 @@ export async function GET() {
   }
 
   const userId = Number(session.sub);
-  const rows = await prisma.$queryRaw<{
-    enabled: number;
-    backup_codes: string | null;
-    created_at: Date;
-    updated_at: Date;
-  }[]>`
-    SELECT enabled, backup_codes, created_at, updated_at FROM user_mfa WHERE user_id = ${userId} LIMIT 1
-  `;
+  const record = await (prisma as any).userMfa.findUnique({
+    where: { user_id: userId },
+    select: {
+      enabled: true,
+      backup_codes: true,
+      created_at: true,
+      updated_at: true,
+    },
+  });
 
-  if (rows.length === 0 || rows[0].enabled !== 1) {
+  if (!record || record.enabled !== 1) {
     return NextResponse.json({
       enabled: false,
       backupCodesRemaining: 0,
@@ -30,8 +31,8 @@ export async function GET() {
 
   let remaining = 0;
   try {
-    if (rows[0].backup_codes) {
-      const parsed = JSON.parse(rows[0].backup_codes);
+    if (record.backup_codes) {
+      const parsed = JSON.parse(record.backup_codes);
       if (Array.isArray(parsed)) remaining = parsed.length;
     }
   } catch {}
@@ -39,7 +40,7 @@ export async function GET() {
   return NextResponse.json({
     enabled: true,
     backupCodesRemaining: remaining,
-    createdAt: rows[0].created_at,
-    updatedAt: rows[0].updated_at,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
   });
 }

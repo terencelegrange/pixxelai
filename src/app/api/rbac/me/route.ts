@@ -12,22 +12,24 @@ export async function GET() {
 
   // "admin" always gets all permissions regardless of DB (safety net)
   if (role === "admin") {
-    const rows = await prisma.$queryRaw<{ nav_key: string }[]>`
-      SELECT nav_key FROM role_permissions WHERE role = 'admin'
-    `;
-    const keys = rows.length > 0 ? rows.map((r) => r.nav_key) : DEFAULT_ROLE_PERMISSIONS.admin;
+    const rows = await (prisma as any).rolePermission.findMany({
+      where: { role: "admin" },
+      select: { nav_key: true },
+    });
+    const keys = rows.length > 0 ? rows.map((r: any) => r.nav_key) : DEFAULT_ROLE_PERMISSIONS.admin;
     return NextResponse.json({ role, navKeys: keys });
   }
 
   // Map legacy "user" role to "viewer"
   const effectiveRole = role === "user" ? "viewer" : role;
 
-  const rows = await prisma.$queryRaw<{ nav_key: string }[]>`
-    SELECT nav_key FROM role_permissions WHERE role = ${effectiveRole}
-  `;
+  const rows = await (prisma as any).rolePermission.findMany({
+    where: { role: effectiveRole },
+    select: { nav_key: true },
+  });
 
   const keys = rows.length > 0
-    ? rows.map((r) => r.nav_key)
+    ? rows.map((r: any) => r.nav_key)
     : DEFAULT_ROLE_PERMISSIONS[effectiveRole] ?? ["dashboard"];
 
   return NextResponse.json({ role: effectiveRole, navKeys: keys });

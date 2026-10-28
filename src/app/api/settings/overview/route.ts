@@ -7,27 +7,47 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const [totalRow]   = await prisma.$queryRaw<{ c: bigint }[]>`SELECT COUNT(*) AS c FROM users`;
-  const [pendingRow] = await prisma.$queryRaw<{ c: bigint }[]>`SELECT COUNT(*) AS c FROM users WHERE status = 'pending'`;
-  const [auditRow]   = await prisma.$queryRaw<{ c: bigint }[]>`SELECT COUNT(*) AS c FROM audit_logs`;
+  const totalUsers = await (prisma as any).user.count();
+  const pendingUsers = await (prisma as any).user.count({ where: { status: "pending" } });
+  const auditEvents = await (prisma as any).auditLog.count();
 
-  const newUsers = await prisma.$queryRaw<{ id: number; email: string; name: string | null; status: string; created_at: string }[]>`
-    SELECT id, email, name, status, created_at FROM users
-    WHERE status = 'pending' OR created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-    ORDER BY created_at DESC LIMIT 5
-  `;
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const newUsers = await (prisma as any).user.findMany({
+    where: {
+      OR: [
+        { status: "pending" },
+        { created_at: { gte: sevenDaysAgo } },
+      ],
+    },
+    orderBy: { created_at: "desc" },
+    take: 5,
+    select: { id: true, email: true, name: true, status: true, created_at: true },
+  });
 
-  const recentAudit = await prisma.$queryRaw<{ id: number; action: string; created_at: string; user_email: string | null }[]>`
-    SELECT al.id, al.action, al.created_at, u.email AS user_email
-    FROM audit_logs al
-    LEFT JOIN users u ON u.id = al.user_id
-    ORDER BY al.created_at DESC LIMIT 8
-  `;
+  const auditLogs = await (prisma as any).auditLog.findMany({
+    orderBy: { created_at: "desc" },
+    take: 8,
+    select: {
+      id: true,
+      action: true,
+      created_at: true,
+      user: {
+        select: { email: true },
+      },
+    },
+  });
+
+  const recentAudit = auditLogs.map((al: any) => ({
+    id: al.id,
+    action: al.action,
+    created_at: al.created_at,
+    user_email: al.user?.email ?? null,
+  }));
 
   return NextResponse.json({
-    totalUsers:   Number(totalRow.c),
-    pendingUsers: Number(pendingRow.c),
-    auditEvents:  Number(auditRow.c),
+    totalUsers,
+    pendingUsers,
+    auditEvents,
     newUsers,
     recentAudit,
   });

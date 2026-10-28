@@ -18,10 +18,10 @@ export async function POST() {
   }
 
   const userId = Number(session.sub);
-  const userRows = await prisma.$queryRaw<{ id: number; email: string }[]>`
-    SELECT id, email FROM users WHERE id = ${userId} LIMIT 1
-  `;
-  const user = userRows[0];
+  const user = await (prisma as any).user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true },
+  });
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -29,11 +29,11 @@ export async function POST() {
   const { secret, qrCodeDataUrl } = await generateMfaSetup(user.email);
 
   // Store pending secret (enabled = 0 until verified)
-  await prisma.$executeRaw`
-    INSERT INTO user_mfa (user_id, secret, enabled, backup_codes, created_at, updated_at)
-    VALUES (${userId}, ${secret}, 0, NULL, NOW(), NOW())
-    ON DUPLICATE KEY UPDATE secret = ${secret}, updated_at = NOW()
-  `;
+  await (prisma as any).userMfa.upsert({
+    where: { user_id: userId },
+    update: { secret, updated_at: new Date() },
+    create: { user_id: userId, secret, enabled: 0, updated_at: new Date() },
+  });
 
   return NextResponse.json({
     secret,

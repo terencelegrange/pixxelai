@@ -22,6 +22,13 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
+    passkeyCredential: {
+      count: vi.fn(),
+      findMany: vi.fn(),
+    },
+    featureFlag: {
+      upsert: vi.fn(),
+    },
   },
 }));
 
@@ -38,7 +45,12 @@ describe("Functional: Passkeys Config API Route (/api/auth/passkeys/config)", ()
   it("GET should return passkeys enabled state and relying party config", async () => {
     (isPasskeysEnabled as any).mockResolvedValue(true);
     (getRPConfig as any).mockReturnValue({ rpName: "PixxelAI", rpID: "pixxel.ai" });
-    (prisma.$queryRaw as any).mockResolvedValue([{ totalCredentials: 5n, totalUsers: 3n }]);
+    ((prisma as any).passkeyCredential.count as any).mockResolvedValue(5);
+    ((prisma as any).passkeyCredential.findMany as any).mockResolvedValue([
+      { user_id: 1 },
+      { user_id: 2 },
+      { user_id: 3 },
+    ]);
 
     const req = new NextRequest("http://localhost:3000/api/auth/passkeys/config");
     const res = await GET(req);
@@ -66,7 +78,7 @@ describe("Functional: Passkeys Config API Route (/api/auth/passkeys/config)", ()
 
   it("PATCH should allow admin to toggle passkeys feature flag", async () => {
     (getSession as any).mockResolvedValue({ sub: "1", role: "admin" });
-    (prisma.$executeRaw as any).mockResolvedValue(1);
+    ((prisma as any).featureFlag.upsert as any).mockResolvedValue({ key: "passkeys", enabled: 1 });
 
     const req = new NextRequest("http://localhost:3000/api/auth/passkeys/config", {
       method: "PATCH",

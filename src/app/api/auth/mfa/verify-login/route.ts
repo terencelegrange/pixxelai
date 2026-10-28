@@ -30,10 +30,10 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = Number(payload.sub);
-  const userRows = await prisma.$queryRaw<UserRow[]>`
-    SELECT id, email, role, status, theme, name, avatar FROM users WHERE id = ${userId} LIMIT 1
-  `;
-  const user = userRows[0];
+  const user = await (prisma as any).user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, role: true, status: true, theme: true, name: true, avatar: true },
+  });
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -42,15 +42,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Account access restricted" }, { status: 403 });
   }
 
-  const mfaRows = await prisma.$queryRaw<{ secret: string; enabled: number; backup_codes: string | null }[]>`
-    SELECT secret, enabled, backup_codes FROM user_mfa WHERE user_id = ${userId} LIMIT 1
-  `;
+  const mfa = await (prisma as any).userMfa.findUnique({
+    where: { user_id: userId },
+    select: { secret: true, enabled: true, backup_codes: true },
+  });
 
-  if (mfaRows.length === 0 || mfaRows[0].enabled !== 1) {
+  if (!mfa || mfa.enabled !== 1) {
     return NextResponse.json({ error: "MFA is not configured for this account" }, { status: 400 });
   }
 
-  const mfa = mfaRows[0];
   const cleanCode = String(code).trim();
   const ua = getUserAgent(req);
   const parsed = parseUserAgent(ua);
@@ -77,10 +77,10 @@ export async function POST(req: NextRequest) {
 
     // Consume backup code
     remainingCodes.splice(index, 1);
-    await prisma.$executeRaw`
-      UPDATE user_mfa SET backup_codes = ${JSON.stringify(remainingCodes)}, updated_at = NOW()
-      WHERE user_id = ${userId}
-    `;
+    await (prisma as any).userMfa.update({
+      where: { user_id: userId },
+      data: { backup_codes: JSON.stringify(remainingCodes), updated_at: new Date() },
+    });
     authMethod = "mfa_backup_code";
   } else {
     const valid = verifyTotpToken(mfa.secret, cleanCode);
@@ -97,7 +97,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Update user last login
-  await prisma.$executeRaw`UPDATE users SET updated_at = NOW() WHERE id = ${user.id}`.catch(() => {});
+  await (prisma as any).user.update({
+    where: { id: user.id },
+    data: { updated_at: new Date() },
+  }).catch(() => {});
 
   const token = await signToken({
     sub: String(user.id),

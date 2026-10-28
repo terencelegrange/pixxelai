@@ -22,6 +22,13 @@ vi.mock("@/lib/initDb", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: vi.fn(),
+    user: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
+    userMfa: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -54,15 +61,13 @@ describe("Functional: Authentication Login & Logout Routes (/api/auth/*)", () =>
   });
 
   it("login should return 401 on invalid password", async () => {
-    (prisma.$queryRaw as any).mockResolvedValue([
-      {
-        id: 1,
-        email: "admin@pixxel.ai",
-        password_hash: "hashed",
-        role: "admin",
-        status: "approved",
-      },
-    ]);
+    ((prisma as any).user.findUnique as any).mockResolvedValue({
+      id: 1,
+      email: "admin@pixxel.ai",
+      password_hash: "hashed",
+      role: "admin",
+      status: "approved",
+    });
     (verifyPassword as any).mockResolvedValue(false);
 
     const req = new NextRequest("http://localhost:3000/api/auth/login", {
@@ -75,17 +80,17 @@ describe("Functional: Authentication Login & Logout Routes (/api/auth/*)", () =>
   });
 
   it("login should succeed, return user payload, and set session cookie", async () => {
-    (prisma.$queryRaw as any).mockResolvedValue([
-      {
-        id: 1,
-        email: "admin@pixxel.ai",
-        password_hash: "hashed",
-        role: "admin",
-        status: "approved",
-        name: "Admin User",
-        avatar: 1,
-      },
-    ]);
+    ((prisma as any).user.findUnique as any).mockResolvedValue({
+      id: 1,
+      email: "admin@pixxel.ai",
+      password_hash: "hashed",
+      role: "admin",
+      status: "approved",
+      name: "Admin User",
+      avatar: 1,
+    });
+    ((prisma as any).userMfa.findUnique as any).mockResolvedValue(null);
+    ((prisma as any).user.update as any).mockResolvedValue({});
     (verifyPassword as any).mockResolvedValue(true);
 
     const req = new NextRequest("http://localhost:3000/api/auth/login", {

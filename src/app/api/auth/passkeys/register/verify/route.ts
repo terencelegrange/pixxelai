@@ -28,22 +28,22 @@ export async function POST(req: NextRequest) {
   }
 
   // Retrieve challenge
-  const challengeRows = await prisma.$queryRaw<{ id: string; challenge: string; expires_at: Date }[]>`
-    SELECT id, challenge, expires_at FROM passkey_challenges
-    WHERE id = ${challengeId} AND user_id = ${userId} AND expires_at > NOW()
-    LIMIT 1
-  `;
+  const challenge = await (prisma as any).passkeyChallenge.findFirst({
+    where: {
+      id: challengeId,
+      user_id: userId,
+    },
+    select: { id: true, challenge: true, expires_at: true },
+  });
 
-  if (challengeRows.length === 0) {
+  if (!challenge || new Date(challenge.expires_at) <= new Date()) {
     return NextResponse.json({ error: "Registration challenge expired or invalid. Please try again." }, { status: 400 });
   }
 
-  const challenge = challengeRows[0];
-
   // Clean up used challenge
-  await prisma.$executeRaw`
-    DELETE FROM passkey_challenges WHERE id = ${challengeId}
-  `.catch(() => {});
+  await (prisma as any).passkeyChallenge.deleteMany({
+    where: { id: challengeId },
+  }).catch(() => {});
 
   const { rpID, origin } = getRPConfig(req);
 
@@ -73,29 +73,30 @@ export async function POST(req: NextRequest) {
   const passkeyName = (name && name.trim()) ? name.trim() : (credentialDeviceType === "singleDevice" ? "Security Key" : "Biometric Passkey");
 
   // Save credential
-  await prisma.$executeRaw`
-    INSERT INTO passkey_credentials (
-      id, user_id, public_key, counter, device_type, backed_up, transports, name, created_at, last_used
-    ) VALUES (
-      ${credentialId},
-      ${userId},
-      ${publicKeyBase64},
-      ${counter},
-      ${credentialDeviceType},
-      ${credentialBackedUp ? 1 : 0},
-      ${transports},
-      ${passkeyName},
-      NOW(),
-      NOW()
-    ) ON DUPLICATE KEY UPDATE
-      public_key = ${publicKeyBase64},
-      counter = ${counter},
-      device_type = ${credentialDeviceType},
-      backed_up = ${credentialBackedUp ? 1 : 0},
-      transports = ${transports},
-      name = ${passkeyName},
-      last_used = NOW()
-  `;
+  await (prisma as any).passkeyCredential.upsert({
+    where: { id: credentialId },
+    update: {
+      public_key: publicKeyBase64,
+      counter,
+      device_type: credentialDeviceType,
+      backed_up: credentialBackedUp ? 1 : 0,
+      transports,
+      name: passkeyName,
+      last_used: new Date(),
+    },
+    create: {
+      id: credentialId,
+      user_id: userId,
+      public_key: publicKeyBase64,
+      counter,
+      device_type: credentialDeviceType,
+      backed_up: credentialBackedUp ? 1 : 0,
+      transports,
+      name: passkeyName,
+      created_at: new Date(),
+      last_used: new Date(),
+    },
+  });
 
   await auditLog({
     userId,

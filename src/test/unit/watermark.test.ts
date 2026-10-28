@@ -5,6 +5,12 @@ import { prisma } from "@/lib/prisma";
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: vi.fn(),
+    featureFlag: {
+      findUnique: vi.fn(),
+    },
+    watermarkConfig: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -14,7 +20,8 @@ describe("Unit: Watermarking Config & Payload Generation (lib/watermark)", () =>
   });
 
   it("getWatermarkConfig should return disabled default config when no database row exists", async () => {
-    (prisma.$queryRaw as any).mockResolvedValue([]);
+    ((prisma as any).featureFlag.findUnique as any).mockResolvedValue(null);
+    ((prisma as any).watermarkConfig.findUnique as any).mockResolvedValue(null);
 
     const config = await getWatermarkConfig();
     expect(config.enabled).toBe(false);
@@ -24,17 +31,15 @@ describe("Unit: Watermarking Config & Payload Generation (lib/watermark)", () =>
 
   it("getWatermarkConfig should only be enabled if both feature flag and table row enabled are 1", async () => {
     // Flag enabled, but table config disabled
-    (prisma.$queryRaw as any)
-      .mockResolvedValueOnce([{ enabled: 1 }]) // flag
-      .mockResolvedValueOnce([{ enabled: 0, custom_text: "Test", show_qr: 1, opacity: 10, font_size: 14 }]);
+    ((prisma as any).featureFlag.findUnique as any).mockResolvedValueOnce({ enabled: 1 });
+    ((prisma as any).watermarkConfig.findUnique as any).mockResolvedValueOnce({ enabled: 0, custom_text: "Test", show_qr: 1, opacity: 10, font_size: 14 });
 
     const config = await getWatermarkConfig();
     expect(config.enabled).toBe(false);
 
     // Both enabled
-    (prisma.$queryRaw as any)
-      .mockResolvedValueOnce([{ enabled: 1 }]) // flag
-      .mockResolvedValueOnce([{ enabled: 1, custom_text: "Confidential", show_qr: 1, opacity: 10, font_size: 14 }]);
+    ((prisma as any).featureFlag.findUnique as any).mockResolvedValueOnce({ enabled: 1 });
+    ((prisma as any).watermarkConfig.findUnique as any).mockResolvedValueOnce({ enabled: 1, custom_text: "Confidential", show_qr: 1, opacity: 10, font_size: 14 });
 
     const activeConfig = await getWatermarkConfig();
     expect(activeConfig.enabled).toBe(true);
@@ -42,17 +47,14 @@ describe("Unit: Watermarking Config & Payload Generation (lib/watermark)", () =>
   });
 
   it("generateWatermarkOverlayPayload should interpolate user variables into customText template", async () => {
-    (prisma.$queryRaw as any)
-      .mockResolvedValueOnce([{ enabled: 1 }])
-      .mockResolvedValueOnce([
-        {
-          enabled: 1,
-          custom_text: "{{email}} | UID: {{id}} | User: {{name}} | {{date}}",
-          show_qr: 1,
-          opacity: 10,
-          font_size: 14,
-        },
-      ]);
+    ((prisma as any).featureFlag.findUnique as any).mockResolvedValueOnce({ enabled: 1 });
+    ((prisma as any).watermarkConfig.findUnique as any).mockResolvedValueOnce({
+      enabled: 1,
+      custom_text: "{{email}} | UID: {{id}} | User: {{name}} | {{date}}",
+      show_qr: 1,
+      opacity: 10,
+      font_size: 14,
+    });
 
     const payload = await generateWatermarkOverlayPayload({
       id: 42,

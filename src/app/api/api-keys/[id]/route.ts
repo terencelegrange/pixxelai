@@ -14,7 +14,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "active must be a boolean" }, { status: 400 });
   }
 
-  await prisma.$executeRaw`UPDATE api_keys SET active = ${active ? 1 : 0} WHERE id = ${parseInt(id)}`;
+  await (prisma as any).apiKey.update({
+    where: { id: parseInt(id, 10) },
+    data: { active: active ? 1 : 0 },
+  });
 
   await auditLog({
     userId: parseInt(session.sub, 10),
@@ -34,7 +37,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { id } = await params;
 
-  await prisma.$executeRaw`DELETE FROM api_keys WHERE id = ${parseInt(id)}`;
+  await (prisma as any).apiKey.delete({
+    where: { id: parseInt(id, 10) },
+  });
 
   await auditLog({
     userId: parseInt(session.sub, 10),

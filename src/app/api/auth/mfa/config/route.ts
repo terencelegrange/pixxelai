@@ -9,14 +9,14 @@ export async function GET() {
   await initDb();
   const enabled = await isMfaEnabled();
 
-  const countRows = await prisma.$queryRaw<{ totalEnrolled: bigint }[]>`
-    SELECT COUNT(*) AS totalEnrolled FROM user_mfa WHERE enabled = 1
-  `.catch(() => [{ totalEnrolled: BigInt(0) }]);
+  const totalEnrolled = await (prisma as any).userMfa.count({
+    where: { enabled: 1 },
+  }).catch(() => 0);
 
   return NextResponse.json({
     enabled,
     stats: {
-      totalEnrolledUsers: Number(countRows[0]?.totalEnrolled ?? 0),
+      totalEnrolledUsers: Number(totalEnrolled),
     },
   });
 }
@@ -31,11 +31,17 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json();
   const enabled = body.enabled ? 1 : 0;
 
-  await prisma.$executeRaw`
-    INSERT INTO feature_flags (\`key\`, enabled, label, description)
-    VALUES ('mfa', ${enabled}, 'Multi-Factor Authentication (MFA)', 'Allow users to configure and sign in with TOTP Authenticator Apps')
-    ON DUPLICATE KEY UPDATE enabled = ${enabled}
-  `;
+  await (prisma as any).featureFlag.upsert({
+    where: { key: "mfa" },
+    update: { enabled },
+    create: {
+      key: "mfa",
+      enabled,
+      label: "Multi-Factor Authentication (MFA)",
+      description: "Allow users to configure and sign in with TOTP Authenticator Apps",
+      category: "system",
+    },
+  });
 
   await auditLog({
     userId: session.sub === "apikey" ? undefined : Number(session.sub),

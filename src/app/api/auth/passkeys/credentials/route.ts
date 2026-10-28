@@ -11,23 +11,22 @@ export async function GET() {
   }
 
   const userId = Number(session.sub);
-  const rows = await prisma.$queryRaw<{
-    id: string;
-    name: string;
-    device_type: string;
-    backed_up: number;
-    transports: string | null;
-    created_at: Date;
-    last_used: Date | null;
-  }[]>`
-    SELECT id, name, device_type, backed_up, transports, created_at, last_used
-    FROM passkey_credentials
-    WHERE user_id = ${userId}
-    ORDER BY created_at DESC
-  `;
+  const rows = await (prisma as any).passkeyCredential.findMany({
+    where: { user_id: userId },
+    orderBy: { created_at: "desc" },
+    select: {
+      id: true,
+      name: true,
+      device_type: true,
+      backed_up: true,
+      transports: true,
+      created_at: true,
+      last_used: true,
+    },
+  });
 
   return NextResponse.json({
-    credentials: rows.map((r) => ({
+    credentials: rows.map((r: any) => ({
       id: r.id,
       name: r.name,
       deviceType: r.device_type,

@@ -42,24 +42,39 @@ export async function PATCH(req: NextRequest) {
   const fontSize = Math.max(8, Math.min(36, Number(body.fontSize) || 12));
 
   // Update feature flag
-  await prisma.$executeRaw`
-    INSERT INTO feature_flags (\`key\`, enabled, label, description)
-    VALUES ('watermarking', ${enabled}, 'Forensic Watermarking', 'Display subtle 45-degree tiled watermark and user QR verification overlay')
-    ON DUPLICATE KEY UPDATE enabled = ${enabled}
-  `;
+  await (prisma as any).featureFlag.upsert({
+    where: { key: "watermarking" },
+    update: { enabled },
+    create: {
+      key: "watermarking",
+      enabled,
+      label: "Forensic Watermarking",
+      description: "Display subtle 45-degree tiled watermark and user QR verification overlay",
+      category: "system",
+    },
+  });
 
   // Update watermark config
-  await prisma.$executeRaw`
-    INSERT INTO watermark_config (id, enabled, custom_text, show_qr, opacity, font_size, updated_at)
-    VALUES (1, ${enabled}, ${customText}, ${showQr}, ${opacity}, ${fontSize}, NOW())
-    ON DUPLICATE KEY UPDATE
-      enabled = ${enabled},
-      custom_text = ${customText},
-      show_qr = ${showQr},
-      opacity = ${opacity},
-      font_size = ${fontSize},
-      updated_at = NOW()
-  `;
+  await (prisma as any).watermarkConfig.upsert({
+    where: { id: 1 },
+    update: {
+      enabled,
+      custom_text: customText,
+      show_qr: showQr,
+      opacity,
+      font_size: fontSize,
+      updated_at: new Date(),
+    },
+    create: {
+      id: 1,
+      enabled,
+      custom_text: customText,
+      show_qr: showQr,
+      opacity,
+      font_size: fontSize,
+      updated_at: new Date(),
+    },
+  });
 
   await auditLog({
     userId: session.sub === "apikey" ? undefined : Number(session.sub),

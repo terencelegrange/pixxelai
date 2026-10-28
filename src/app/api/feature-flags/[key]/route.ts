@@ -14,11 +14,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ke
     return NextResponse.json({ error: "enabled must be a boolean" }, { status: 400 });
   }
 
-  const result = await prisma.$executeRaw`
-    UPDATE feature_flags SET enabled = ${enabled ? 1 : 0} WHERE \`key\` = ${key}
-  `;
-
-  if (!result) return NextResponse.json({ error: "Flag not found" }, { status: 404 });
+  try {
+    await (prisma as any).featureFlag.update({
+      where: { key },
+      data: { enabled: enabled ? 1 : 0 },
+    });
+  } catch {
+    return NextResponse.json({ error: "Flag not found" }, { status: 404 });
+  }
 
   await auditLog({
     userId: parseInt(session.sub, 10),

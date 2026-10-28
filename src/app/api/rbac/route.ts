@@ -10,9 +10,13 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (session.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const rows = await prisma.$queryRaw<{ role: string; nav_key: string }[]>`
-    SELECT role, nav_key FROM role_permissions ORDER BY role, nav_key
-  `;
+  const rows = await (prisma as any).rolePermission.findMany({
+    orderBy: [
+      { role: "asc" },
+      { nav_key: "asc" },
+    ],
+    select: { role: true, nav_key: true },
+  });
 
   const result: Record<string, string[]> = {};
   for (const { key } of ROLES) result[key] = [];
@@ -33,12 +37,14 @@ export async function PUT(req: NextRequest) {
   const permissions: Record<string, string[]> = await req.json();
 
   // Delete all existing and re-insert
-  await prisma.$executeRaw`DELETE FROM role_permissions`;
+  await (prisma as any).rolePermission.deleteMany();
   for (const [role, keys] of Object.entries(permissions)) {
-    for (const nav_key of keys) {
-      await prisma.$executeRaw`
-        INSERT INTO role_permissions (role, nav_key) VALUES (${role}, ${nav_key})
-      `;
+    if (Array.isArray(keys)) {
+      for (const nav_key of keys) {
+        await (prisma as any).rolePermission.create({
+          data: { role, nav_key },
+        });
+      }
     }
   }
 

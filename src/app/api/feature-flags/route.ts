@@ -12,9 +12,19 @@ export interface FeatureFlag {
 
 export async function GET() {
   await initDb();
-  const rows = await prisma.$queryRaw<{ key: string; enabled: number; label: string; description: string; category?: string }[]>`
-    SELECT \`key\`, enabled, label, description, \`category\` FROM feature_flags ORDER BY \`category\` DESC, \`key\` ASC
-  `;
+  const rows = await (prisma as any).featureFlag.findMany({
+    orderBy: [
+      { category: "desc" },
+      { key: "asc" },
+    ],
+    select: {
+      key: true,
+      enabled: true,
+      label: true,
+      description: true,
+      category: true,
+    },
+  });
   const flags: Record<string, FeatureFlag> = {};
   for (const r of rows) {
     const cat = r.category === "standards" || r.key.startsWith("standards_") ? "standards" : "system";

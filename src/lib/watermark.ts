@@ -11,22 +11,18 @@ export interface WatermarkConfig {
 
 export async function getWatermarkConfig(): Promise<WatermarkConfig> {
   try {
-    const flagRows = await prisma.$queryRaw<{ enabled: number }[]>`
-      SELECT enabled FROM feature_flags WHERE \`key\` = 'watermarking' LIMIT 1
-    `;
-    const flagEnabled = flagRows.length > 0 ? flagRows[0].enabled === 1 : false;
+    const flag = await (prisma as any).featureFlag.findUnique({
+      where: { key: "watermarking" },
+      select: { enabled: true },
+    });
+    const flagEnabled = flag ? flag.enabled === 1 : false;
 
-    const rows = await prisma.$queryRaw<{
-      enabled: number;
-      custom_text: string;
-      show_qr: number;
-      opacity: number;
-      font_size?: number;
-    }[]>`
-      SELECT enabled, custom_text, show_qr, opacity, font_size FROM watermark_config WHERE id = 1 LIMIT 1
-    `;
+    const row = await (prisma as any).watermarkConfig.findUnique({
+      where: { id: 1 },
+      select: { enabled: true, custom_text: true, show_qr: true, opacity: true, font_size: true },
+    });
 
-    if (rows.length === 0) {
+    if (!row) {
       return {
         enabled: false,
         customText: "{{email}} • CONFIDENTIAL",
@@ -35,8 +31,6 @@ export async function getWatermarkConfig(): Promise<WatermarkConfig> {
         fontSize: 12,
       };
     }
-
-    const row = rows[0];
     return {
       enabled: flagEnabled && row.enabled === 1,
       customText: row.custom_text || "{{email}} • CONFIDENTIAL",

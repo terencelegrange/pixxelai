@@ -19,17 +19,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Password confirmation is required" }, { status: 400 });
   }
 
-  const userRows = await prisma.$queryRaw<{ id: number; password_hash: string }[]>`
-    SELECT id, password_hash FROM users WHERE id = ${userId} LIMIT 1
-  `;
-  const user = userRows[0];
+  const user = await (prisma as any).user.findUnique({
+    where: { id: userId },
+    select: { id: true, password_hash: true },
+  });
   if (!user || !(await verifyPassword(password, user.password_hash))) {
     return NextResponse.json({ error: "Incorrect password" }, { status: 403 });
   }
 
-  await prisma.$executeRaw`
-    DELETE FROM user_mfa WHERE user_id = ${userId}
-  `;
+  await (prisma as any).userMfa.deleteMany({
+    where: { user_id: userId },
+  });
 
   const ua = getUserAgent(req);
   const parsed = parseUserAgent(ua);

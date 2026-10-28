@@ -11,20 +11,19 @@ export async function GET(req: NextRequest) {
   const { rpName, rpID } = getRPConfig(req);
 
   // Also query count of credentials and registered users for admin telemetry
-  const counts = await prisma.$queryRaw<{ totalCredentials: bigint; totalUsers: bigint }[]>`
-    SELECT 
-      COUNT(*) AS totalCredentials,
-      COUNT(DISTINCT user_id) AS totalUsers
-    FROM passkey_credentials
-  `.catch(() => [{ totalCredentials: BigInt(0), totalUsers: BigInt(0) }]);
+  const totalCredentials = await (prisma as any).passkeyCredential.count().catch(() => 0);
+  const distinctUsers = await (prisma as any).passkeyCredential.findMany({
+    distinct: ["user_id"],
+    select: { user_id: true },
+  }).catch(() => []);
 
   return NextResponse.json({
     enabled,
     rpName,
     rpID,
     stats: {
-      totalCredentials: Number(counts[0]?.totalCredentials ?? 0),
-      totalUsersWithPasskeys: Number(counts[0]?.totalUsers ?? 0),
+      totalCredentials: Number(totalCredentials),
+      totalUsersWithPasskeys: distinctUsers.length,
     },
   });
 }
@@ -39,11 +38,17 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json();
   const enabled = body.enabled ? 1 : 0;
 
-  await prisma.$executeRaw`
-    INSERT INTO feature_flags (\`key\`, enabled, label, description)
-    VALUES ('passkeys', ${enabled}, 'Passkeys (FIDO2/WebAuthn)', 'Allow users to register and sign in with biometric passkeys and security keys')
-    ON DUPLICATE KEY UPDATE enabled = ${enabled}
-  `;
+  await (prisma as any).featureFlag.upsert({
+    where: { key: "passkeys" },
+    update: { enabled },
+    create: {
+      key: "passkeys",
+      enabled,
+      label: "Passkeys (FIDO2/WebAuthn)",
+      description: "Allow users to register and sign in with biometric passkeys and security keys",
+      category: "system",
+    },
+  });
 
   await auditLog({
     userId: session.sub === "apikey" ? undefined : Number(session.sub),

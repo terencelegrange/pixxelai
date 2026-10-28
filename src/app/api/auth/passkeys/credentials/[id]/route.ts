@@ -23,13 +23,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
-  const updated = await prisma.$executeRaw`
-    UPDATE passkey_credentials
-    SET name = ${name}
-    WHERE id = ${id} AND user_id = ${userId}
-  `;
+  const updated = await (prisma as any).passkeyCredential.updateMany({
+    where: { id, user_id: userId },
+    data: { name },
+  });
 
-  if (updated === 0) {
+  if (updated.count === 0) {
     return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   }
 
@@ -58,18 +57,18 @@ export async function DELETE(
   const { id } = await params;
 
   // Check existing for audit
-  const existing = await prisma.$queryRaw<{ name: string }[]>`
-    SELECT name FROM passkey_credentials WHERE id = ${id} AND user_id = ${userId} LIMIT 1
-  `;
+  const existing = await (prisma as any).passkeyCredential.findFirst({
+    where: { id, user_id: userId },
+    select: { name: true },
+  });
 
-  if (existing.length === 0) {
+  if (!existing) {
     return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   }
 
-  await prisma.$executeRaw`
-    DELETE FROM passkey_credentials
-    WHERE id = ${id} AND user_id = ${userId}
-  `;
+  await (prisma as any).passkeyCredential.deleteMany({
+    where: { id, user_id: userId },
+  });
 
   await auditLog({
     userId,

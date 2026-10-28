@@ -18,14 +18,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { status, role } = await req.json();
   const allowedStatus = ["pending", "approved", "rejected"];
-  const allowedRole = ["admin", "user"];
+  const allowedRole = ["admin", "editor", "viewer", "security", "architecture", "compliance", "legal", "privacy", "quality", "developer", "user"];
+
+  const data: Record<string, any> = {};
+  if (status && allowedStatus.includes(status)) {
+    data.status = status;
+  }
+  if (role && allowedRole.includes(role)) {
+    data.role = role;
+  }
+
+  if (Object.keys(data).length > 0) {
+    await (prisma as any).user.update({
+      where: { id: userId },
+      data,
+    });
+  }
 
   if (status && allowedStatus.includes(status)) {
-    await prisma.$executeRaw`UPDATE users SET status = ${status}, updated_at = NOW() WHERE id = ${userId}`;
     await auditLog({ userId: parseInt(session.sub), action: status.toUpperCase(), resource: "users", resourceId: userId, ip: getIp(req) });
   }
   if (role && allowedRole.includes(role)) {
-    await prisma.$executeRaw`UPDATE users SET role = ${role}, updated_at = NOW() WHERE id = ${userId}`;
     await auditLog({ userId: parseInt(session.sub), action: "UPDATE", resource: "users", resourceId: userId, details: { role }, ip: getIp(req) });
   }
 
@@ -44,7 +57,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 });
   }
 
-  await prisma.$executeRaw`DELETE FROM users WHERE id = ${userId}`;
+  await (prisma as any).user.delete({ where: { id: userId } });
   await auditLog({ userId: parseInt(session.sub), action: "DELETE", resource: "users", resourceId: userId, ip: getIp(req) });
   return NextResponse.json({ ok: true });
 }

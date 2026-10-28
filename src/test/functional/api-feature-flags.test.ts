@@ -13,6 +13,10 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
+    featureFlag: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -31,7 +35,7 @@ describe("Functional: Feature Flags API (/api/feature-flags)", () => {
   });
 
   it("GET should return dictionary of flags partitioned into system and standards categories", async () => {
-    (prisma.$queryRaw as any).mockResolvedValue([
+    ((prisma as any).featureFlag.findMany as any).mockResolvedValue([
       { key: "signup", enabled: 1, label: "Sign Up", description: "Allow registration", category: "system" },
       { key: "standards_security", enabled: 1, label: "Security Standards", description: "Enables security rules", category: "standards" },
       { key: "standards_privacy", enabled: 0, label: "Privacy Standards", description: "Enables privacy rules", category: "standards" },
@@ -78,7 +82,7 @@ describe("Functional: Feature Flags API (/api/feature-flags)", () => {
 
   it("PATCH should toggle flag when called by admin and return ok", async () => {
     (getSession as any).mockResolvedValue({ sub: "1", role: "admin" });
-    (prisma.$executeRaw as any).mockResolvedValue(1);
+    ((prisma as any).featureFlag.update as any).mockResolvedValue({ key: "standards_privacy", enabled: 1 });
 
     const req = new NextRequest("http://localhost:3000/api/feature-flags/standards_privacy", {
       method: "PATCH",

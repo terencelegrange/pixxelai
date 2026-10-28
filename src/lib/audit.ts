@@ -15,18 +15,17 @@ export async function auditLog(opts: AuditOptions): Promise<void> {
     const details = opts.details ? JSON.stringify(opts.details) : null;
     const resourceId = opts.resourceId != null ? String(opts.resourceId) : null;
 
-    await prisma.$executeRaw`
-      INSERT INTO audit_logs (user_id, action, resource, resource_id, details, ip, created_at)
-      VALUES (
-        ${opts.userId ?? null},
-        ${opts.action},
-        ${opts.resource},
-        ${resourceId},
-        ${details},
-        ${opts.ip ?? null},
-        NOW()
-      )
-    `;
+    await (prisma as any).auditLog.create({
+      data: {
+        user_id: opts.userId ?? null,
+        action: opts.action,
+        resource: opts.resource,
+        resource_id: resourceId,
+        details: details,
+        ip: opts.ip ?? null,
+        created_at: new Date(),
+      },
+    });
 
     // Asynchronously forward to remote LogCollector if configured
     sendRemoteLog({

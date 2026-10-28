@@ -20,26 +20,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
   }
 
-  const existing = await prisma.$queryRaw<{ id: number }[]>`
-    SELECT id FROM users WHERE email = ${email} LIMIT 1
-  `;
-  if (existing.length > 0) {
+  const existing = await (prisma as any).user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  if (existing) {
     return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
   }
 
   const hash = await hashPassword(password);
   const safeName = name?.trim() || null;
 
-  await prisma.$executeRaw`
-    INSERT INTO users (email, password_hash, name, role, status, created_at, updated_at)
-    VALUES (${email}, ${hash}, ${safeName}, 'user', 'pending', NOW(), NOW())
-  `;
+  const user = await (prisma as any).user.create({
+    data: {
+      email,
+      password_hash: hash,
+      name: safeName,
+      role: "user",
+      status: "pending",
+    },
+  });
 
-  const inserted = await prisma.$queryRaw<{ id: number }[]>`
-    SELECT id FROM users WHERE email = ${email} LIMIT 1
-  `;
-
-  await auditLog({ action: "SIGNUP", resource: "users", resourceId: inserted[0]?.id, details: { email }, ip: getIp(req) });
+  await auditLog({ action: "SIGNUP", resource: "users", resourceId: user.id, details: { email }, ip: getIp(req) });
 
   return NextResponse.json({ ok: true });
 }

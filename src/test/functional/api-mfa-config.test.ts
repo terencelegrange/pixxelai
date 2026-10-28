@@ -21,6 +21,12 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
+    userMfa: {
+      count: vi.fn(),
+    },
+    featureFlag: {
+      upsert: vi.fn(),
+    },
   },
 }));
 
@@ -36,7 +42,7 @@ describe("Functional: MFA Config API Route (/api/auth/mfa/config)", () => {
 
   it("GET should return system-wide MFA status and enrolled count", async () => {
     (isMfaEnabled as any).mockResolvedValue(true);
-    (prisma.$queryRaw as any).mockResolvedValue([{ totalEnrolled: 12n }]);
+    ((prisma as any).userMfa.count as any).mockResolvedValue(12);
 
     const res = await GET();
     expect(res.status).toBe(200);
@@ -59,7 +65,7 @@ describe("Functional: MFA Config API Route (/api/auth/mfa/config)", () => {
 
   it("PATCH should update MFA feature flag when executed by admin", async () => {
     (getSession as any).mockResolvedValue({ sub: "1", role: "admin" });
-    (prisma.$executeRaw as any).mockResolvedValue(1);
+    ((prisma as any).featureFlag.upsert as any).mockResolvedValue({ key: "mfa", enabled: 1 });
 
     const req = new NextRequest("http://localhost:3000/api/auth/mfa/config", {
       method: "PATCH",

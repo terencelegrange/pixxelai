@@ -14,6 +14,9 @@ vi.mock("@/lib/initDb", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: vi.fn(),
+    changelog: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -31,9 +34,9 @@ describe("Functional: Changelog API Route (/api/changelog)", () => {
 
   it("GET should return formatted changelog entries ordered by date desc", async () => {
     (getSession as any).mockResolvedValue({ sub: "1", role: "viewer" });
-    (prisma.$queryRaw as any).mockResolvedValue([
-      { id: 2, date: "2026-10-22", description: "Concentric rings chart" },
-      { id: 1, date: "2026-10-21", description: "Compliance reporting hub" },
+    ((prisma as any).changelog.findMany as any).mockResolvedValue([
+      { id: 2, date: new Date("2026-10-22T00:00:00.000Z"), description: "Concentric rings chart" },
+      { id: 1, date: new Date("2026-10-21T00:00:00.000Z"), description: "Compliance reporting hub" },
     ]);
 
     const res = await GET();

@@ -24,10 +24,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Email and password required" }, { status: 400 });
   }
 
-  const rows = await prisma.$queryRaw<UserRow[]>`
-    SELECT id, email, password_hash, role, status, theme, name, avatar FROM users WHERE email = ${email} LIMIT 1
-  `;
-  const user = rows[0] ?? null;
+  const user = await (prisma as any).user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      password_hash: true,
+      role: true,
+      status: true,
+      theme: true,
+      name: true,
+      avatar: true,
+    },
+  });
   const ua = getUserAgent(req);
   const parsed = parseUserAgent(ua);
 
@@ -51,10 +60,11 @@ export async function POST(req: NextRequest) {
   // Check if MFA is active system-wide AND configured for this user
   const mfaActiveSystemWide = await isMfaEnabled();
   if (mfaActiveSystemWide) {
-    const mfaRows = await prisma.$queryRaw<{ enabled: number }[]>`
-      SELECT enabled FROM user_mfa WHERE user_id = ${user.id} LIMIT 1
-    `;
-    if (mfaRows.length > 0 && mfaRows[0].enabled === 1) {
+    const mfa = await (prisma as any).userMfa.findUnique({
+      where: { user_id: user.id },
+      select: { enabled: true },
+    });
+    if (mfa && mfa.enabled === 1) {
       // Issue short-lived challenge token for 2FA step
       const mfaToken = await signToken({
         sub: String(user.id),

@@ -13,11 +13,25 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const users = await prisma.$queryRaw<UserRow[]>`
-    SELECT id, email, name, role, status, created_at
-    FROM users
-    ORDER BY FIELD(status,'pending','approved','rejected'), created_at DESC
-  `;
+  const users = await (prisma as any).user.findMany({
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      status: true,
+      created_at: true,
+    },
+    orderBy: { created_at: "desc" },
+  });
+
+  const statusPriority: Record<string, number> = { pending: 1, approved: 2, rejected: 3 };
+  users.sort((a: any, b: any) => {
+    const prioA = statusPriority[a.status] ?? 99;
+    const prioB = statusPriority[b.status] ?? 99;
+    if (prioA !== prioB) return prioA - prioB;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   return NextResponse.json(users);
 }

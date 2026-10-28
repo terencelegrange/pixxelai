@@ -9,11 +9,12 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const userId = parseInt(session.sub, 10);
-  const rows = await prisma.$queryRaw<{ id: number; name: string | null; email: string; avatar: number | null }[]>`
-    SELECT id, name, email, avatar FROM users WHERE id = ${userId} LIMIT 1
-  `;
-  if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(rows[0]);
+  const user = await (prisma as any).user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, avatar: true },
+  });
+  if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(user);
 }
 
 export async function PATCH(req: NextRequest) {
@@ -28,50 +29,41 @@ export async function PATCH(req: NextRequest) {
     if (!currentPassword) {
       return NextResponse.json({ error: "Current password required" }, { status: 400 });
     }
-    const rows = await prisma.$queryRaw<{ password_hash: string }[]>`
-      SELECT password_hash FROM users WHERE id = ${userId} LIMIT 1
-    `;
-    if (!rows[0] || !(await verifyPassword(currentPassword, rows[0].password_hash))) {
+    const user = await (prisma as any).user.findUnique({
+      where: { id: userId },
+      select: { password_hash: true },
+    });
+    if (!user || !(await verifyPassword(currentPassword, user.password_hash))) {
       return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
     }
   }
 
   // Build update
-  const updates: string[] = [];
-  const values: unknown[] = [];
+  const data: Record<string, unknown> = {};
 
-  if (name !== undefined) { updates.push("name = ?"); values.push(name || null); }
-  if (email) { updates.push("email = ?"); values.push(email); }
+  if (name !== undefined) { data.name = name || null; }
+  if (email) { data.email = email; }
   if (newPassword) {
-    const hash = await hashPassword(newPassword);
-    updates.push("password_hash = ?");
-    values.push(hash);
+    data.password_hash = await hashPassword(newPassword);
   }
 
   if (avatar !== undefined && Number.isInteger(avatar) && avatar >= 1 && avatar <= 127) {
-    updates.push("avatar = ?");
-    values.push(avatar);
+    data.avatar = avatar;
   }
 
-  if (updates.length === 0) {
+  if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
-  updates.push("updated_at = NOW()");
-  values.push(userId);
+  data.updated_at = new Date();
 
-  await prisma.$executeRawUnsafe(
-    `UPDATE users SET ${updates.join(", ")} WHERE id = ?`,
-    ...values
-  );
+  const u = await (prisma as any).user.update({
+    where: { id: userId },
+    data,
+    select: { email: true, role: true, name: true },
+  });
 
   await auditLog({ userId, action: "USER_UPDATED", resource: "users", resourceId: String(userId), ip: getIp(req) });
-
-  // Re-fetch to get latest values for new token
-  const updated = await prisma.$queryRaw<{ email: string; role: string; name: string | null }[]>`
-    SELECT email, role, name FROM users WHERE id = ${userId} LIMIT 1
-  `;
-  const u = updated[0];
 
   const token = await signToken({ sub: String(userId), email: u.email, role: u.role, name: u.name });
 

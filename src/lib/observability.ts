@@ -34,10 +34,7 @@ function parseHeaders(raw: string | null): Record<string, string> {
 
 export async function getObservabilityConfigs(): Promise<Record<string, ObservabilityConfig>> {
   await initDb();
-  const rows = await prisma.$queryRaw<ObservabilityRow[]>`
-    SELECT \`type\`, \`enabled\`, \`endpoint\`, \`api_key\`, \`site_id\`, \`log_level\`, \`custom_headers\`, \`updated_at\`
-    FROM \`observability_config\`
-  `;
+  const rows = await (prisma as any).observabilityConfig.findMany();
 
   const map: Record<string, ObservabilityConfig> = {};
   for (const r of rows) {
@@ -96,18 +93,28 @@ export async function saveObservabilityConfig(
     customHeaders: config.customHeaders !== undefined ? JSON.stringify(config.customHeaders) : JSON.stringify(current.customHeaders),
   };
 
-  await prisma.$executeRaw`
-    INSERT INTO \`observability_config\` (\`type\`, \`enabled\`, \`endpoint\`, \`api_key\`, \`site_id\`, \`log_level\`, \`custom_headers\`, \`updated_at\`)
-    VALUES (${type}, ${merged.enabled ? 1 : 0}, ${merged.endpoint}, ${merged.apiKey}, ${merged.siteId}, ${merged.logLevel}, ${merged.customHeaders}, NOW())
-    ON DUPLICATE KEY UPDATE
-      \`enabled\` = VALUES(\`enabled\`),
-      \`endpoint\` = VALUES(\`endpoint\`),
-      \`api_key\` = VALUES(\`api_key\`),
-      \`site_id\` = VALUES(\`site_id\`),
-      \`log_level\` = VALUES(\`log_level\`),
-      \`custom_headers\` = VALUES(\`custom_headers\`),
-      \`updated_at\` = NOW()
-  `;
+  await (prisma as any).observabilityConfig.upsert({
+    where: { type },
+    update: {
+      enabled: merged.enabled ? 1 : 0,
+      endpoint: merged.endpoint,
+      api_key: merged.apiKey,
+      site_id: merged.siteId,
+      log_level: merged.logLevel,
+      custom_headers: merged.customHeaders,
+      updated_at: new Date(),
+    },
+    create: {
+      type,
+      enabled: merged.enabled ? 1 : 0,
+      endpoint: merged.endpoint,
+      api_key: merged.apiKey,
+      site_id: merged.siteId,
+      log_level: merged.logLevel,
+      custom_headers: merged.customHeaders,
+      updated_at: new Date(),
+    },
+  });
 
   return (await getObservabilityConfigs())[type];
 }

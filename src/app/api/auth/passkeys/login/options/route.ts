@@ -20,14 +20,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     if (body.email) {
-      const userRows = await prisma.$queryRaw<{ id: number }[]>`
-        SELECT id FROM users WHERE email = ${body.email} LIMIT 1
-      `;
-      if (userRows.length > 0) {
-        const credentials = await prisma.$queryRaw<{ id: string; transports: string | null }[]>`
-          SELECT id, transports FROM passkey_credentials WHERE user_id = ${userRows[0].id}
-        `;
-        allowCredentials = credentials.map((c) => ({
+      const user = await (prisma as any).user.findUnique({
+        where: { email: body.email },
+        select: { id: true },
+      });
+      if (user) {
+        const credentials = await (prisma as any).passkeyCredential.findMany({
+          where: { user_id: user.id },
+          select: { id: true, transports: true },
+        });
+        allowCredentials = credentials.map((c: any) => ({
           id: c.id,
           transports: c.transports ? JSON.parse(c.transports) : undefined,
         }));
@@ -46,10 +48,15 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
   // Store authentication challenge
-  await prisma.$executeRaw`
-    INSERT INTO passkey_challenges (id, challenge, user_id, expires_at, created_at)
-    VALUES (${challengeId}, ${options.challenge}, NULL, ${expiresAt}, NOW())
-  `;
+  await (prisma as any).passkeyChallenge.create({
+    data: {
+      id: challengeId,
+      challenge: options.challenge,
+      user_id: null,
+      expires_at: expiresAt,
+      created_at: new Date(),
+    },
+  });
 
   return NextResponse.json({ options, challengeId });
 }

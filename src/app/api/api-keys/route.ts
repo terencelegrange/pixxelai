@@ -16,19 +16,26 @@ export async function GET() {
 
   await initDb();
 
-  const keys = await prisma.$queryRaw<{
-    id: number; prefix: string; name: string; contact: string;
-    expires_at: Date | null; created_at: Date; last_used: Date | null; active: number;
-    created_by_email: string | null;
-  }[]>`
-    SELECT k.id, k.prefix, k.name, k.contact, k.expires_at, k.created_at, k.last_used, k.active,
-           u.email AS created_by_email
-    FROM api_keys k
-    LEFT JOIN users u ON u.id = k.created_by
-    ORDER BY k.created_at DESC
-  `;
+  const keys = await (prisma as any).apiKey.findMany({
+    include: {
+      user: { select: { email: true } },
+    },
+    orderBy: { created_at: "desc" },
+  });
 
-  return NextResponse.json(keys.map((k) => ({ ...k, active: k.active === 1 })));
+  return NextResponse.json(
+    keys.map((k: any) => ({
+      id: k.id,
+      prefix: k.prefix,
+      name: k.name,
+      contact: k.contact,
+      expires_at: k.expires_at,
+      created_at: k.created_at,
+      last_used: k.last_used,
+      active: k.active === 1,
+      created_by_email: k.user?.email ?? null,
+    }))
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -50,14 +57,17 @@ export async function POST(req: NextRequest) {
   const userId = parseInt(session.sub, 10);
   const expires = expiresAt ? new Date(expiresAt) : null;
 
-  await prisma.$executeRaw`
-    INSERT INTO api_keys (key_hash, prefix, name, contact, expires_at, created_by, created_at)
-    VALUES (${keyHash}, ${prefix}, ${name.trim()}, ${contact.trim()}, ${expires}, ${userId}, NOW())
-  `;
-
-  const [inserted] = await prisma.$queryRaw<{ id: number }[]>`
-    SELECT id FROM api_keys WHERE prefix = ${prefix} LIMIT 1
-  `;
+  const inserted = await (prisma as any).apiKey.create({
+    data: {
+      key_hash: keyHash,
+      prefix,
+      name: name.trim(),
+      contact: contact.trim(),
+      expires_at: expires,
+      created_by: userId,
+      created_at: new Date(),
+    },
+  });
 
   await auditLog({
     userId,

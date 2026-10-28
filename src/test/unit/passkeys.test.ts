@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: vi.fn(),
+    featureFlag: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -39,13 +42,13 @@ describe("Unit: Passkeys & WebAuthn RP Config (lib/passkeys)", () => {
   });
 
   it("isPasskeysEnabled should return true when flag is 1 and false when 0", async () => {
-    (prisma.$queryRaw as any).mockResolvedValueOnce([{ enabled: 1 }]);
+    ((prisma as any).featureFlag.findUnique as any).mockResolvedValueOnce({ enabled: 1 });
     expect(await isPasskeysEnabled()).toBe(true);
 
-    (prisma.$queryRaw as any).mockResolvedValueOnce([{ enabled: 0 }]);
+    ((prisma as any).featureFlag.findUnique as any).mockResolvedValueOnce({ enabled: 0 });
     expect(await isPasskeysEnabled()).toBe(false);
 
-    (prisma.$queryRaw as any).mockResolvedValueOnce([]);
+    ((prisma as any).featureFlag.findUnique as any).mockResolvedValueOnce(null);
     expect(await isPasskeysEnabled()).toBe(false);
   });
 });

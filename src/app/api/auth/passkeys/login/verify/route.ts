@@ -32,53 +32,51 @@ export async function POST(req: NextRequest) {
   }
 
   // Retrieve challenge
-  const challengeRows = await prisma.$queryRaw<{ id: string; challenge: string; expires_at: Date }[]>`
-    SELECT id, challenge, expires_at FROM passkey_challenges
-    WHERE id = ${challengeId} AND expires_at > NOW()
-    LIMIT 1
-  `;
+  const challenge = await (prisma as any).passkeyChallenge.findUnique({
+    where: { id: challengeId },
+    select: { id: true, challenge: true, expires_at: true },
+  });
 
-  if (challengeRows.length === 0) {
+  if (!challenge || new Date(challenge.expires_at) <= new Date()) {
     return NextResponse.json({ error: "Authentication session expired. Please try again." }, { status: 400 });
   }
 
-  const challenge = challengeRows[0];
-
   // Clean up challenge
-  await prisma.$executeRaw`
-    DELETE FROM passkey_challenges WHERE id = ${challengeId}
-  `.catch(() => {});
+  await (prisma as any).passkeyChallenge.deleteMany({
+    where: { id: challengeId },
+  }).catch(() => {});
 
   // Fetch credential
-  const credentialRows = await prisma.$queryRaw<{
-    id: string;
-    user_id: number;
-    public_key: string;
-    counter: bigint;
-    transports: string | null;
-    name: string;
-  }[]>`
-    SELECT id, user_id, public_key, counter, transports, name
-    FROM passkey_credentials
-    WHERE id = ${response.id}
-    LIMIT 1
-  `;
+  const credential = await (prisma as any).passkeyCredential.findUnique({
+    where: { id: response.id },
+    select: {
+      id: true,
+      user_id: true,
+      public_key: true,
+      counter: true,
+      transports: true,
+      name: true,
+    },
+  });
 
-  if (credentialRows.length === 0) {
+  if (!credential) {
     return NextResponse.json({ error: "Passkey is not registered with any account" }, { status: 404 });
   }
 
-  const credential = credentialRows[0];
-
   // Fetch associated user
-  const userRows = await prisma.$queryRaw<UserRow[]>`
-    SELECT id, email, role, status, theme, name, avatar
-    FROM users
-    WHERE id = ${credential.user_id}
-    LIMIT 1
-  `;
+  const user = await (prisma as any).user.findUnique({
+    where: { id: credential.user_id },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      status: true,
+      theme: true,
+      name: true,
+      avatar: true,
+    },
+  });
 
-  const user = userRows[0];
   if (!user) {
     return NextResponse.json({ error: "Associated user account not found" }, { status: 404 });
   }
@@ -125,16 +123,19 @@ export async function POST(req: NextRequest) {
 
   // Update credential counter and last_used
   const newCounter = BigInt(verification.authenticationInfo.newCounter);
-  await prisma.$executeRaw`
-    UPDATE passkey_credentials
-    SET counter = ${newCounter}, last_used = NOW()
-    WHERE id = ${credential.id}
-  `;
+  await (prisma as any).passkeyCredential.update({
+    where: { id: credential.id },
+    data: {
+      counter: newCounter,
+      last_used: new Date(),
+    },
+  });
 
   // Update user's last login
-  await prisma.$executeRaw`
-    UPDATE users SET updated_at = NOW() WHERE id = ${user.id}
-  `.catch(() => {});
+  await (prisma as any).user.update({
+    where: { id: user.id },
+    data: { updated_at: new Date() },
+  }).catch(() => {});
 
   const token = await signToken({
     sub: String(user.id),

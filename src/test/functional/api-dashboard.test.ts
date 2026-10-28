@@ -10,6 +10,13 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: vi.fn(),
+    user: {
+      count: vi.fn(),
+      findMany: vi.fn(),
+    },
+    auditLog: {
+      count: vi.fn(),
+    },
   },
 }));
 
@@ -28,14 +35,14 @@ describe("Functional: Dashboard Metrics API Route (/api/dashboard)", () => {
   it("should return user and audit metric counts for authenticated user", async () => {
     (getSession as any).mockResolvedValue({ sub: "1", role: "admin" });
 
-    (prisma.$queryRaw as any)
-      .mockResolvedValueOnce([{ c: 10n }]) // totalUsers
-      .mockResolvedValueOnce([{ c: 2n }])  // pendingUsers
-      .mockResolvedValueOnce([{ c: 8n }])  // approvedUsers
-      .mockResolvedValueOnce([{ c: 150n }]) // auditCount
-      .mockResolvedValueOnce([
-        { id: 1, email: "user@pixxel.ai", name: "User", status: "approved", created_at: new Date() },
-      ]); // recentUsers
+    ((prisma as any).user.count as any)
+      .mockResolvedValueOnce(10) // totalUsers
+      .mockResolvedValueOnce(2)  // pendingUsers
+      .mockResolvedValueOnce(8); // approvedUsers
+    ((prisma as any).auditLog.count as any).mockResolvedValueOnce(150);
+    ((prisma as any).user.findMany as any).mockResolvedValueOnce([
+      { id: 1, email: "user@pixxel.ai", name: "User", status: "approved", created_at: new Date() },
+    ]);
 
     const res = await GET();
     expect(res.status).toBe(200);

@@ -41,18 +41,25 @@ async function getSessionFromApiKey(rawKey: string): Promise<JwtPayload | null> 
   try {
     const { prisma } = await import("./prisma");
     const keyHash = createHash("sha256").update(rawKey).digest("hex");
-    const rows = await prisma.$queryRaw<{
-      id: number; active: number; expires_at: Date | null;
-    }[]>`
-      SELECT id, active, expires_at FROM api_keys
-      WHERE key_hash = ${keyHash} AND active = 1
-        AND (expires_at IS NULL OR expires_at > NOW())
-      LIMIT 1
-    `;
-    if (!rows[0]) return null;
+    const now = new Date();
+    const key = await (prisma as any).apiKey.findFirst({
+      where: {
+        key_hash: keyHash,
+        active: 1,
+        OR: [
+          { expires_at: null },
+          { expires_at: { gt: now } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!key) return null;
 
     // Update last_used (fire and forget)
-    prisma.$executeRaw`UPDATE api_keys SET last_used = NOW() WHERE id = ${rows[0].id}`.catch(() => {});
+    (prisma as any).apiKey.update({
+      where: { id: key.id },
+      data: { last_used: new Date() },
+    }).catch(() => {});
 
     // API keys get admin-level access
     return { sub: "apikey", email: "api", role: "admin", name: null };
@@ -68,11 +75,14 @@ export function hashDeviceToken(token: string): string {
 export async function createDeviceToken(userId: number): Promise<string> {
   const { prisma } = await import("./prisma");
   const raw = randomBytes(32).toString("hex");
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO device_tokens (user_id, token_hash, expires_at) VALUES (?, ?, NOW() + INTERVAL ${DEVICE_TOKEN_TTL_DAYS} DAY)`,
-    userId,
-    hashDeviceToken(raw)
-  );
+  const expiresAt = new Date(Date.now() + DEVICE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+  await (prisma as any).deviceToken.create({
+    data: {
+      user_id: userId,
+      token_hash: hashDeviceToken(raw),
+      expires_at: expiresAt,
+    },
+  });
   return raw;
 }
 

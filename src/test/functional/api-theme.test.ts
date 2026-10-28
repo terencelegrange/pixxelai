@@ -12,6 +12,9 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $executeRaw: vi.fn(),
+    user: {
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -48,7 +51,7 @@ describe("Functional: User Theme API Route (/api/me/theme)", () => {
 
   it("PATCH should update theme in database and return theme cookie", async () => {
     (getSession as any).mockResolvedValue({ sub: "42" });
-    (prisma.$executeRaw as any).mockResolvedValue(1);
+    ((prisma as any).user.update as any).mockResolvedValue({ id: 42, theme: "dark" });
 
     const req = new NextRequest("http://localhost:3000/api/me/theme", {
       method: "PATCH",

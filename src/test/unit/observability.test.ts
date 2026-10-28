@@ -10,6 +10,10 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
+    observabilityConfig: {
+      findMany: vi.fn(),
+      upsert: vi.fn(),
+    },
   },
 }));
 
@@ -29,7 +33,7 @@ describe("Unit: Observability Telemetry (lib/observability)", () => {
   });
 
   it("getObservabilityConfigs should return default analytics and logcollector fallbacks", async () => {
-    (prisma.$queryRaw as any).mockResolvedValue([]);
+    ((prisma as any).observabilityConfig.findMany as any).mockResolvedValue([]);
 
     const configs = await getObservabilityConfigs();
     expect(configs.analytics).toBeDefined();
@@ -42,7 +46,7 @@ describe("Unit: Observability Telemetry (lib/observability)", () => {
   });
 
   it("sendRemoteLog should not invoke fetch when log collector is disabled", async () => {
-    (prisma.$queryRaw as any).mockResolvedValue([
+    ((prisma as any).observabilityConfig.findMany as any).mockResolvedValue([
       { type: "logcollector", enabled: 0, endpoint: "http://logger/ingest" },
     ]);
     global.fetch = vi.fn();
@@ -52,7 +56,7 @@ describe("Unit: Observability Telemetry (lib/observability)", () => {
   });
 
   it("sendRemoteLog should dispatch formatted log entry when enabled", async () => {
-    (prisma.$queryRaw as any).mockResolvedValue([
+    ((prisma as any).observabilityConfig.findMany as any).mockResolvedValue([
       {
         type: "logcollector",
         enabled: 1,
@@ -87,7 +91,7 @@ describe("Unit: Observability Telemetry (lib/observability)", () => {
   });
 
   it("sendAnalyticsEvent should send formatted analytics event when enabled", async () => {
-    (prisma.$queryRaw as any).mockResolvedValue([
+    ((prisma as any).observabilityConfig.findMany as any).mockResolvedValue([
       {
         type: "analytics",
         enabled: 1,

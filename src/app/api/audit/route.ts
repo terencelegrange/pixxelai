@@ -20,22 +20,43 @@ export async function GET(req: NextRequest) {
   const offset = (page - 1) * limit;
   const action = searchParams.get("action") ?? "";
 
-  const rows = action
-    ? await prisma.$queryRaw<AuditRow[]>`
-        SELECT a.id, a.action, a.resource, a.resource_id, a.details, a.ip, a.created_at,
-               u.email AS user_email, u.name AS user_name
-        FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id
-        WHERE a.action = ${action}
-        ORDER BY a.created_at DESC LIMIT ${limit} OFFSET ${offset}
-      `
-    : await prisma.$queryRaw<AuditRow[]>`
-        SELECT a.id, a.action, a.resource, a.resource_id, a.details, a.ip, a.created_at,
-               u.email AS user_email, u.name AS user_name
-        FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id
-        ORDER BY a.created_at DESC LIMIT ${limit} OFFSET ${offset}
-      `;
+  const where = action ? { action } : {};
 
-  const [{ total }] = await prisma.$queryRaw<{ total: bigint }[]>`SELECT COUNT(*) AS total FROM audit_logs`;
+  const auditLogs = await (prisma as any).auditLog.findMany({
+    where,
+    orderBy: { created_at: "desc" },
+    skip: offset,
+    take: limit,
+    select: {
+      id: true,
+      action: true,
+      resource: true,
+      resource_id: true,
+      details: true,
+      ip: true,
+      created_at: true,
+      user: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
+    },
+  });
 
-  return NextResponse.json({ rows, total: Number(total), page, limit });
+  const rows = auditLogs.map((a: any) => ({
+    id: a.id,
+    action: a.action,
+    resource: a.resource,
+    resource_id: a.resource_id,
+    details: a.details,
+    ip: a.ip,
+    created_at: a.created_at,
+    user_email: a.user?.email ?? null,
+    user_name: a.user?.name ?? null,
+  }));
+
+  const total = await (prisma as any).auditLog.count({ where });
+
+  return NextResponse.json({ rows, total, page, limit });
 }

@@ -26,15 +26,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Please enter a valid 6-digit verification code" }, { status: 400 });
   }
 
-  const mfaRows = await prisma.$queryRaw<{ secret: string; enabled: number }[]>`
-    SELECT secret, enabled FROM user_mfa WHERE user_id = ${userId} LIMIT 1
-  `;
+  const mfa = await (prisma as any).userMfa.findUnique({
+    where: { user_id: userId },
+    select: { secret: true, enabled: true },
+  });
 
-  if (mfaRows.length === 0) {
+  if (!mfa) {
     return NextResponse.json({ error: "MFA setup has not been initiated. Please generate a QR code first." }, { status: 400 });
   }
 
-  const mfa = mfaRows[0];
   const isValid = verifyTotpToken(mfa.secret, code);
 
   if (!isValid) {
@@ -43,11 +43,14 @@ export async function POST(req: NextRequest) {
 
   const { plainCodes, hashedCodes } = generateBackupCodes(8);
 
-  await prisma.$executeRaw`
-    UPDATE user_mfa
-    SET enabled = 1, backup_codes = ${JSON.stringify(hashedCodes)}, updated_at = NOW()
-    WHERE user_id = ${userId}
-  `;
+  await (prisma as any).userMfa.update({
+    where: { user_id: userId },
+    data: {
+      enabled: 1,
+      backup_codes: JSON.stringify(hashedCodes),
+      updated_at: new Date(),
+    },
+  });
 
   const ua = getUserAgent(req);
   const parsed = parseUserAgent(ua);

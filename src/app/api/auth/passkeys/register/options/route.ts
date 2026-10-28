@@ -20,20 +20,21 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = Number(session.sub);
-  const userRows = await prisma.$queryRaw<{ id: number; email: string; name: string | null }[]>`
-    SELECT id, email, name FROM users WHERE id = ${userId} LIMIT 1
-  `;
-  const user = userRows[0];
+  const user = await (prisma as any).user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true },
+  });
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   // Fetch user's existing credentials to exclude
-  const existingCredentials = await prisma.$queryRaw<{ id: string; transports: string | null }[]>`
-    SELECT id, transports FROM passkey_credentials WHERE user_id = ${userId}
-  `;
+  const existingCredentials = await (prisma as any).passkeyCredential.findMany({
+    where: { user_id: userId },
+    select: { id: true, transports: true },
+  });
 
-  const excludeCredentials = existingCredentials.map((c) => ({
+  const excludeCredentials = existingCredentials.map((c: any) => ({
     id: c.id,
     transports: c.transports ? (JSON.parse(c.transports) as any) : undefined,
   }));
@@ -59,15 +60,25 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
   // Clean up any stale challenges for this user first
-  await prisma.$executeRaw`
-    DELETE FROM passkey_challenges WHERE user_id = ${userId} OR expires_at < NOW()
-  `.catch(() => {});
+  await (prisma as any).passkeyChallenge.deleteMany({
+    where: {
+      OR: [
+        { user_id: userId },
+        { expires_at: { lt: new Date() } },
+      ],
+    },
+  }).catch(() => {});
 
   // Store new challenge
-  await prisma.$executeRaw`
-    INSERT INTO passkey_challenges (id, challenge, user_id, expires_at, created_at)
-    VALUES (${challengeId}, ${options.challenge}, ${userId}, ${expiresAt}, NOW())
-  `;
+  await (prisma as any).passkeyChallenge.create({
+    data: {
+      id: challengeId,
+      challenge: options.challenge,
+      user_id: userId,
+      expires_at: expiresAt,
+      created_at: new Date(),
+    },
+  });
 
   return NextResponse.json({ options, challengeId });
 }

@@ -76,11 +76,11 @@ export function generateBackupCodes(count = 8): { plainCodes: string[]; hashedCo
 
 export async function isMfaEnabled(): Promise<boolean> {
   try {
-    const rows = await prisma.$queryRaw<{ enabled: number }[]>`
-      SELECT enabled FROM feature_flags WHERE \`key\` = 'mfa' LIMIT 1
-    `;
-    if (rows.length === 0) return false;
-    return rows[0].enabled === 1;
+    const flag = await (prisma as any).featureFlag.findUnique({
+      where: { key: "mfa" },
+      select: { enabled: true },
+    });
+    return flag ? flag.enabled === 1 : false;
   } catch (e) {
     console.error("[isMfaEnabled] error:", e);
     return false;
