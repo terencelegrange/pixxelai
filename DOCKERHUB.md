@@ -142,9 +142,9 @@ Use this endpoint for Docker Compose health checks, Kubernetes liveness/readines
 
 ## Architecture
 
-- **Framework:** Next.js 14 (App Router), React 18, Tailwind CSS, TypeScript (strict)
+- **Framework:** Next.js 15 (App Router), React 19, Tailwind CSS, TypeScript (strict)
 - **Database Engine:** Dual Prisma ORM (isolated SQLite and MySQL code generation) switched dynamically at runtime
-- **Runtime Image:** Multi-stage Alpine container (`node:20-alpine`) running as a non-privileged `nextjs` user (`next build --standalone`)
+- **Runtime Image:** Multi-stage Debian container (`node:22-bookworm-slim`) running as a non-privileged `nextjs` user (`next build --standalone`)
 - **Authentication:** Custom JWT sessions, bcrypt password hashing, Multi-Factor Authentication (MFA/TOTP), WebAuthn/Passkeys, and Enterprise SSO (Microsoft Entra ID) with local account bypass toggle
 - **Assessment Engine:** AI-assisted architecture assessment against customisable standards (Security, Architecture, Privacy, Legal, Performance, Cost, Observability)
 - **Reporting & Visualisation:** Ring charts for compliance closure, assessment queue monitoring, and exportable executive reports

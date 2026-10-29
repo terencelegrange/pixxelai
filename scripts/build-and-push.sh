@@ -70,3 +70,8 @@ docker buildx build \
   .
 
 echo "==> Done: pushed ${IMAGE_NAME}:${VERSION} and ${IMAGE_NAME}:latest"
+
+if [ -f "${REPO_ROOT}/scripts/update-dockerhub-readme.sh" ]; then
+  "${REPO_ROOT}/scripts/update-dockerhub-readme.sh" || echo "Warning: Could not update Docker Hub README automatically."
+fi
+
